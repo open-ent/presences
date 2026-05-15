@@ -333,7 +333,7 @@ public class MassmailingController extends ControllerHelper {
                     .onFailure(fail -> {
                         String message = String.format("[Massmailing@%s::getMassmailingsAnomalies] Failed to retrieve count " +
                                 "event for anomalies request", this.getClass().getSimpleName());
-                        log.error(message, fail.getCause().getMessage());
+                        log.error(message, fail);
                         renderError(request);
                     })
                     .onSuccess(evt -> {
@@ -489,7 +489,7 @@ public class MassmailingController extends ControllerHelper {
                     .onFailure(fail -> {
                         String message = String.format("[Massmailing@%s::prefetch] Failed to retrieve count " +
                                 "event for prefetch request", this.getClass().getSimpleName());
-                        log.error(message, fail.getCause().getMessage());
+                        log.error(message, fail);
                         renderError(request);
                     })
                     .onSuccess(event -> {
