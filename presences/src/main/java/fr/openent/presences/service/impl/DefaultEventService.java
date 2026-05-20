@@ -326,7 +326,7 @@ public class DefaultEventService extends DBService implements EventService {
         if (eventType != null && !eventType.isEmpty()) {
             query += " INNER JOIN presences.event_type AS event_type ON (event_type.id = e.type_id " +
                     "AND e.type_id IN " + Sql.listPrepared(eventType.toArray()) + " ) ";
-            params.addAll(new JsonArray(eventType));
+            params.addAll(EventQueryHelper.toIntList(eventType));
         } else {
             query += "INNER JOIN presences.event_type AS event_type ON event_type.id = e.type_id ";
         }

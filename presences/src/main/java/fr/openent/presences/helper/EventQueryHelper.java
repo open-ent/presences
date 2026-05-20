@@ -20,6 +20,18 @@ public class EventQueryHelper {
     }
 
     /**
+     * Converts a List<String> of numeric IDs to a JsonArray of integers.
+     * Needed because PostgreSQL refuses to compare bigint columns with varchar params.
+     */
+    public static JsonArray toIntList(List<String> list) {
+        JsonArray arr = new JsonArray();
+        for (String s : list) {
+            try { arr.add(Integer.parseInt(s.trim())); } catch (NumberFormatException e) { arr.add(s); }
+        }
+        return arr;
+    }
+
+    /**
      * This method returns a Query that add register's INNER JOIN
      *
      * @param structureId structure identifier
@@ -103,7 +115,7 @@ public class EventQueryHelper {
      */
     public static String joinEventType(List<String> eventType, JsonArray params) {
         if (eventType != null && !eventType.isEmpty()) {
-            params.addAll(new JsonArray(eventType));
+            params.addAll(toIntList(eventType));
             return " INNER JOIN presences.event_type AS event_type ON (event_type.id = e.type_id  AND e.type_id IN "
                     + Sql.listPrepared(eventType.toArray()) + ") ";
         } else {
@@ -120,7 +132,7 @@ public class EventQueryHelper {
      */
     public static String filterTypes(List<String> typeIds, JsonArray params) {
         if (typeIds != null && !typeIds.isEmpty()) {
-            params.addAll(new JsonArray(typeIds));
+            params.addAll(toIntList(typeIds));
             return " AND e.type_id IN " + Sql.listPrepared(typeIds);
         }
         return "";
@@ -190,7 +202,7 @@ public class EventQueryHelper {
             String connector = reasonFilter.isEmpty() ? "" : " OR ";
             //If we want other than absence and lateness
             reasonFilter += connector + "(type_id IN " + Sql.listPrepared(typeIds) + " AND type_id NOT IN (" + EventTypeEnum.ABSENCE.getType() + "," + EventTypeEnum.LATENESS.getType() + "))";
-            params.addAll(new JsonArray(typeIds));
+            params.addAll(toIntList(typeIds));
         }
         return reasonFilter.isEmpty() ? "" : " AND (" + reasonFilter + ")";
     }
@@ -203,7 +215,7 @@ public class EventQueryHelper {
 
         if (listReasonIds != null && !listReasonIds.isEmpty()) {
             latenessFilter += "reason_id IN " + Sql.listPrepared(listReasonIds);
-            params.addAll(new JsonArray(listReasonIds));
+            params.addAll(toIntList(listReasonIds));
         }
 
         if (Boolean.TRUE.equals(noReasonLateness)) {
@@ -229,7 +241,7 @@ public class EventQueryHelper {
 
         if (listReasonIds != null && !listReasonIds.isEmpty()) {
             reasonFilter += "reason_id IN " + Sql.listPrepared(listReasonIds);
-            params.addAll(new JsonArray(listReasonIds));
+            params.addAll(toIntList(listReasonIds));
         }
 
         if (regularized != null) {
