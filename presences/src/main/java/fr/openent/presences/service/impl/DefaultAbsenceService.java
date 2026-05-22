@@ -64,7 +64,7 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
         JsonArray params = new JsonArray();
         String query = "SELECT * FROM " + Presences.dbSchema + ".absence";
 
-        query += " WHERE structure_id = ? AND (start_date <= ? AND end_date >= ?) ";
+        query += " WHERE structure_id = ? AND (start_date <= ?::timestamp AND end_date >= ?::timestamp) ";
 
         params.add(structureId)
                 .add(endDate + " " + defaultEndTime)
@@ -81,7 +81,7 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
         Promise<JsonArray> promise = Promise.promise();
         JsonArray params = new JsonArray();
         String query = "SELECT * FROM " + Presences.dbSchema + ".absence" +
-                " WHERE structure_id = ? AND ? <= end_date AND start_date <= ?";
+                " WHERE structure_id = ? AND ?::timestamp <= end_date AND start_date <= ?::timestamp";
 
         params.add(structureId);
         params.add(startDate);
@@ -237,7 +237,7 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
         String query = "SELECT * FROM " + Presences.dbSchema + ".absence";
 
         query += " WHERE absence.structure_id = ? " +
-                " AND (start_date > ? AND end_date < ? OR ? > start_date)";
+                " AND (start_date > ?::timestamp AND end_date < ?::timestamp OR ?::timestamp > start_date)";
         params.add(structureId)
                 .add(startDate + " " + defaultStartTime)
                 .add(endDate + " " + defaultEndTime)
@@ -265,8 +265,8 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
         JsonArray params = new JsonArray();
         String query = "SELECT * FROM " + Presences.dbSchema + ".absence" +
                 " WHERE student_id IN " + Sql.listPrepared(users.toArray()) +
-                " AND (? >= start_date OR ? < end_date)" +
-                " AND (end_date <= ? OR ? > start_date)";
+                " AND (?::timestamp >= start_date OR ?::timestamp < end_date)" +
+                " AND (end_date <= ?::timestamp OR ?::timestamp > start_date)";
 
         params.addAll(new JsonArray(users));
         params.add(startDate + " " + defaultStartTime);
@@ -284,8 +284,8 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
         JsonArray params = new JsonArray();
         String query = "SELECT * FROM " + Presences.dbSchema + ".absence" +
                 " WHERE student_id IN " + Sql.listPrepared(users.toArray()) +
-                " AND ? < end_date" +
-                " AND start_date < ? ";
+                " AND ?::timestamp < end_date" +
+                " AND start_date < ?::timestamp ";
 
         params.addAll(new JsonArray(users));
         params.add(startDate);
@@ -847,8 +847,8 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
                 "SELECT register.id, register.start_date, register.end_date FROM " + Presences.dbSchema + ".register " +
                 "INNER JOIN presences.rel_group_register as rgr ON (rgr.register_id = register.id) " +
                 "WHERE rgr.group_id IN " + Sql.listPrepared(groupIds.toArray()) + " " +
-                "AND register.start_date >= ? " +
-                "AND register.end_date <= ? " +
+                "AND register.start_date >= ?::timestamp " +
+                "AND register.end_date <= ?::timestamp " +
                 "AND register.id NOT IN (" +
                 "  SELECT event.register_id FROM " + Presences.dbSchema + ".event " +
                 "  WHERE event.type_id = 1 and event.register_id = register.id and event.student_id = ?" +
@@ -892,8 +892,8 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
                 "SELECT register.id, register.start_date, register.end_date FROM " + Presences.dbSchema + ".register " +
                 "INNER JOIN presences.rel_group_register as rgr ON (rgr.register_id = register.id) " +
                 "WHERE rgr.group_id IN " + Sql.listPrepared(groupIds.toArray()) + " " +
-                "AND register.start_date >= ? " +
-                "AND register.end_date <= ? " +
+                "AND register.start_date >= ?::timestamp " +
+                "AND register.end_date <= ?::timestamp " +
                 "AND register.id IN (" +
                 "  SELECT event.register_id FROM " + Presences.dbSchema + ".event" +
                 "  WHERE event.type_id = 1 and event.register_id = register.id and event.student_id = ?" +
@@ -1074,7 +1074,7 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
 
     private void resetEventsOnDelete(JsonObject absenceResult, Handler<Either<String, JsonObject>> handler) {
         String query = "UPDATE " + Presences.dbSchema + ".event SET reason_id = null, followed = false " +
-                "WHERE student_id = ? AND start_date >= ? AND end_date <= ? AND counsellor_input = false AND type_id = "
+                "WHERE student_id = ? AND start_date >= ?::timestamp AND end_date <= ?::timestamp AND counsellor_input = false AND type_id = "
                 + EventTypeEnum.ABSENCE.getType();
 
         JsonArray params = new JsonArray()
@@ -1151,12 +1151,12 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
         }
 
         if (startAt != null) {
-            where += " AND end_date > ? ";
+            where += " AND end_date > ?::timestamp ";
             params.add(DateHelper.isFormat(startAt, DateHelper.MONGO_FORMAT) ? startAt : String.format("%s %s", startAt, defaultStartTime));
         }
 
         if (endAt != null) {
-            where += " AND start_date < ? ";
+            where += " AND start_date < ?::timestamp ";
             params.add(DateHelper.isFormat(endAt, DateHelper.MONGO_FORMAT) ? endAt : String.format("%s %s", endAt, defaultEndTime));
         }
 
@@ -1223,12 +1223,12 @@ public class DefaultAbsenceService extends DBService implements AbsenceService {
         String query = " WHERE structure_id = ?";
         params.add(structureId);
         if (endAt != null) {
-            query += " AND a.start_date < ?";
+            query += " AND a.start_date < ?::timestamp";
             params.add(endAt);
         }
 
         if (startAt != null) {
-            query += " AND a.end_date > ?";
+            query += " AND a.end_date > ?::timestamp";
             params.add(startAt);
         }
 

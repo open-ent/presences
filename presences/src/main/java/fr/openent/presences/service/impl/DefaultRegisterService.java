@@ -1212,7 +1212,7 @@ public class DefaultRegisterService extends DBService implements RegisterService
         Promise<JsonArray> promise = Promise.promise();
         String query = "SELECT id, start_date, end_date, course_id, state_id, notified, split_slot FROM "
                 + Presences.dbSchema + ".register WHERE structure_id = ? AND state_id != 3 " +
-                "AND start_date > ? AND start_date < ? ORDER BY start_date DESC";
+                "AND start_date > ?::timestamp AND start_date < ?::timestamp ORDER BY start_date DESC";
 
         JsonArray params = new JsonArray();
         params.add(structureId)
