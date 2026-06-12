@@ -1393,12 +1393,12 @@ public class DefaultEventService extends DBService implements EventService {
         }
 
         if (limit != null) {
-            query += " LIMIT ? ";
+            query += " LIMIT ?::bigint ";
             params.add(limit);
         }
 
         if (offset != null) {
-            query += " OFFSET ? ";
+            query += " OFFSET ?::bigint ";
             params.add(offset);
         }
 
@@ -1493,12 +1493,12 @@ public class DefaultEventService extends DBService implements EventService {
                                     .addAll(morningQuery.getJsonArray("params"));
 
                             if (limit != null) {
-                                query += " LIMIT ? ";
+                                query += " LIMIT ?::bigint ";
                                 params.add(limit);
                             }
 
                             if (offset != null) {
-                                query += " OFFSET ? ";
+                                query += " OFFSET ?::bigint ";
                                 params.add(offset);
                             }
 

@@ -129,7 +129,7 @@ public class DefaultRegisterService extends DBService implements RegisterService
 
         if (limit != null && offset != null) {
             query += " ORDER BY register.start_date, register.id";
-            query += " OFFSET ? LIMIT ? ";
+            query += " OFFSET ?::bigint LIMIT ?::bigint ";
             params.add(offset);
             params.add(limit);
         }
