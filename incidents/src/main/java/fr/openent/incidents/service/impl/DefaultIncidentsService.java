@@ -91,12 +91,12 @@ public class DefaultIncidentsService extends SqlCrudService implements Incidents
                 .add(endDate);
 
         if (limit != null) {
-            query += " LIMIT ? ";
+            query += " LIMIT ?::bigint ";
             params.add(limit);
         }
 
         if (offset != null) {
-            query += " OFFSET ? ";
+            query += " OFFSET ?::bigint ";
             params.add(offset);
         }
 
@@ -140,12 +140,12 @@ public class DefaultIncidentsService extends SqlCrudService implements Incidents
                 getFromWhereQuery(params, structureId, startDate, endDate, studentIds) +
                 " ORDER BY incident.date DESC ";
         if (limit != null) {
-            query += " LIMIT ? ";
+            query += " LIMIT ?::bigint ";
             params.add(limit);
         }
 
         if (offset != null) {
-            query += " OFFSET ? ";
+            query += " OFFSET ?::bigint ";
             params.add(offset);
         }
 
