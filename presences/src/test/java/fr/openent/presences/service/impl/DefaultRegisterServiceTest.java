@@ -75,10 +75,16 @@ public class DefaultRegisterServiceTest extends DBService {
     @Test
     public void testGetFirstCounsellorId(TestContext ctx) throws Exception {
 
-        String query = "MATCH (u:User)-[:IN]->(g:ProfileGroup)-[:DEPENDS]->(s:Structure {id:{structureId}}) " +
-                "WHERE ANY(function IN u.functions WHERE function =~ '.*(?=\\\\$EDUCATION).*(?=EDU).*(?=\\\\$E0030).*') " +
-                "OPTIONAL MATCH (u:User)-[:IN]->(:FunctionGroup {filter:'DIRECTION'})-[:DEPENDS]->(s:Structure {id:{structureId}}) " +
-                "RETURN u.id as id";
+        String query = "MATCH (s:Structure {id:{structureId}}) " +
+                "OPTIONAL MATCH (cpe:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(s) " +
+                "WHERE ANY(function IN cpe.functions WHERE function =~ '.*(?=\\\\$EDUCATION).*(?=EDU).*(?=\\\\$E0030).*') " +
+                "WITH s, collect(cpe.id)[0] AS cpeId " +
+                "OPTIONAL MATCH (dir:User)-[:IN]->(:FunctionGroup {filter:'DIRECTION-Func'})-[:DEPENDS]->(s) " +
+                "WITH s, cpeId, collect(dir.id)[0] AS dirId " +
+                "OPTIONAL MATCH (adml:User)-[:IN]->(:FunctionGroup {filter:'AdminLocal'})-[:DEPENDS]->(s) " +
+                "WITH coalesce(cpeId, dirId, collect(adml.id)[0]) AS id " +
+                "WHERE id IS NOT NULL " +
+                "RETURN id";
 
         JsonObject params = new JsonObject().put("structureId", "structureId");
 
