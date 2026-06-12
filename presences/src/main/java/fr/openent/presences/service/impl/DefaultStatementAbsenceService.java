@@ -182,12 +182,12 @@ public class DefaultStatementAbsenceService implements StatementAbsenceService {
             query += "OFFSET " + page * Presences.PAGE_SIZE + " ";
         } else {
             if (limit != null) {
-                query += "LIMIT ? ";
+                query += "LIMIT ?::bigint ";
                 params.add(limit);
             }
 
             if (offset != null) {
-                query += "OFFSET ? ";
+                query += "OFFSET ?::bigint ";
                 params.add(offset);
             }
         }

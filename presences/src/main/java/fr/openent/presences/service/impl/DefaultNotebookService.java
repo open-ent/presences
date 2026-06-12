@@ -179,12 +179,12 @@ public class DefaultNotebookService implements NotebookService {
         }
 
         if (limit != null) {
-            query += " LIMIT ? ";
+            query += " LIMIT ?::bigint ";
             params.add(limit);
         }
 
         if (offset != null) {
-            query += " OFFSET ? ";
+            query += " OFFSET ?::bigint ";
             params.add(offset);
         }
 
@@ -203,12 +203,12 @@ public class DefaultNotebookService implements NotebookService {
                 " ORDER BY forgotten_notebook.date DESC ";
 
         if (limit != null) {
-            query += " LIMIT ? ";
+            query += " LIMIT ?::bigint ";
             params.add(limit);
         }
 
         if (offset != null) {
-            query += " OFFSET ? ";
+            query += " OFFSET ?::bigint ";
             params.add(offset);
         }
 
