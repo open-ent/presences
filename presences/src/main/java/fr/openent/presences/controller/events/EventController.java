@@ -32,6 +32,8 @@ import org.entcore.common.http.filter.Trace;
 import org.entcore.common.http.response.DefaultResponseHandler;
 import org.entcore.common.neo4j.Neo4j;
 import org.entcore.common.neo4j.Neo4jResult;
+import org.entcore.common.sql.Sql;
+import org.entcore.common.sql.SqlResult;
 import org.entcore.common.user.UserUtils;
 
 import java.util.*;
@@ -139,6 +141,88 @@ public class EventController extends ControllerHelper {
 
                             }));
         });
+    }
+
+    @Get("/structures/:structureId/vie-scolaire/events")
+    @ApiDoc("Liste NON restreinte des événements (absences/retards) d'un établissement, " +
+            "pour le tableau de bord vie scolaire (vue CPE). Contrairement à /events, n'applique " +
+            "PAS la restriction par classes de l'enseignant : renvoie tout l'établissement en un appel. " +
+            "Les événements sont enrichis (nom élève, classe) côté serveur.")
+    @ResourceFilter(EventReadRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
+    public void getStructureVieScolaireEvents(HttpServerRequest request) {
+        if (!request.params().contains(Field.STRUCTUREID) || !request.params().contains(Field.STARTDATE)
+                || !request.params().contains(Field.ENDDATE)) {
+            badRequest(request);
+            return;
+        }
+        String structureId = request.getParam(Field.STRUCTUREID);
+        String startDate = request.getParam(Field.STARTDATE);
+        String endDate = request.getParam(Field.ENDDATE);
+        List<String> eventType = request.getParam(Field.EVENTTYPE) != null
+                ? Arrays.asList(request.getParam(Field.EVENTTYPE).split("\\s*,\\s*")) : null;
+
+        // Requête directe (event ⨝ register), SANS restriction par classe, puis
+        // enrichissement élève (nom + classe) via neo4j. Tout est fait côté serveur
+        // pour ne renvoyer qu'un seul appel au client.
+        StringBuilder query = new StringBuilder()
+                .append("SELECT e.id, e.student_id, e.type_id, ")
+                .append("to_char(e.start_date, 'YYYY-MM-DD\"T\"HH24:MI:SS') AS start_date, ")
+                .append("to_char(e.end_date, 'YYYY-MM-DD\"T\"HH24:MI:SS') AS end_date, ")
+                .append("e.reason_id, e.counsellor_regularisation, e.followed, reason.label AS reason_label ")
+                .append("FROM ").append(Presences.dbSchema).append(".event e ")
+                .append("INNER JOIN ").append(Presences.dbSchema).append(".register r ON (r.id = e.register_id AND r.structure_id = ?) ")
+                .append("LEFT JOIN ").append(Presences.dbSchema).append(".reason ON (reason.id = e.reason_id) ")
+                .append("WHERE e.start_date >= ?::timestamp AND e.start_date <= ?::timestamp ");
+        JsonArray params = new JsonArray().add(structureId).add(startDate + " 00:00:00").add(endDate + " 23:59:59");
+        if (eventType != null && !eventType.isEmpty()) {
+            query.append("AND e.type_id IN ").append(Sql.listPrepared(eventType.toArray())).append(" ");
+            eventType.forEach(t -> params.add(Integer.parseInt(t)));
+        }
+        query.append("ORDER BY e.start_date DESC");
+
+        Sql.getInstance().prepared(query.toString(), params, SqlResult.validResultHandler(sqlRes -> {
+            if (sqlRes.isLeft()) {
+                renderError(request, new JsonObject().put("error", sqlRes.left().getValue()));
+                return;
+            }
+            JsonArray events = sqlRes.right().getValue();
+            if (events.isEmpty()) {
+                renderJson(request, new JsonObject().put("all", events));
+                return;
+            }
+            // Construit l'objet reason {id,label} attendu par le client.
+            JsonArray studentIds = new JsonArray();
+            for (Object o : events) {
+                JsonObject e = (JsonObject) o;
+                String label = e.getString("reason_label");
+                e.put("reason", label != null ? new JsonObject().put("id", e.getInteger("reason_id")).put("label", label) : null);
+                e.remove("reason_label");
+                String sid = e.getString("student_id");
+                if (sid != null && !studentIds.contains(sid)) studentIds.add(sid);
+            }
+            String neo = "MATCH (u:User) WHERE u.id IN {ids} " +
+                    "OPTIONAL MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
+                    "RETURN u.id AS id, u.displayName AS displayName, head(collect(c.name)) AS className";
+            Neo4j.getInstance().execute(neo, new JsonObject().put("ids", studentIds), Neo4jResult.validResultHandler(neoRes -> {
+                Map<String, JsonObject> byId = new HashMap<>();
+                if (neoRes.isRight()) {
+                    for (Object o : neoRes.right().getValue()) {
+                        JsonObject u = (JsonObject) o;
+                        byId.put(u.getString("id"), u);
+                    }
+                }
+                for (Object o : events) {
+                    JsonObject e = (JsonObject) o;
+                    JsonObject u = byId.get(e.getString("student_id"));
+                    JsonObject student = new JsonObject().put("id", e.getString("student_id"));
+                    student.put("displayName", u != null ? u.getString("displayName") : "Élève");
+                    if (u != null) student.put("className", u.getString("className"));
+                    e.put("student", student);
+                }
+                renderJson(request, new JsonObject().put("all", events));
+            }));
+        }));
     }
 
     @Get("/events/export")
