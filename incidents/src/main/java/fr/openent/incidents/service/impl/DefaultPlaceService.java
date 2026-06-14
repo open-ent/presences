@@ -24,7 +24,7 @@ public class DefaultPlaceService implements PlaceService {
         Promise<JsonArray> placesUsedPromise = Promise.promise();
 
         fetchPlaces(structureId, FutureHelper.handlerEitherPromise(placesPromise));
-        fetchUsedPlaces(structureId, FutureHelper.handlerEitherPromise(placesPromise));
+        fetchUsedPlaces(structureId, FutureHelper.handlerEitherPromise(placesUsedPromise));
 
         Future.all(placesPromise.future(), placesUsedPromise.future()).onComplete(event -> {
             if (event.failed()) {
