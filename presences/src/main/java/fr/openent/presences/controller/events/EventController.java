@@ -225,6 +225,44 @@ public class EventController extends ControllerHelper {
         }));
     }
 
+    @Get("/structures/:structureId/vie-scolaire/presence-rate")
+    @ApiDoc("Taux de présence du jour d'un établissement : effectif élèves (neo4j) moins les " +
+            "élèves absents distincts du jour. Renvoie {total, absent, late, present, rate}.")
+    @ResourceFilter(EventReadRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
+    public void getStructurePresenceRate(HttpServerRequest request) {
+        if (!request.params().contains(Field.STRUCTUREID) || !request.params().contains("date")) {
+            badRequest(request);
+            return;
+        }
+        String structureId = request.getParam(Field.STRUCTUREID);
+        String date = request.getParam("date");
+        String sql = "SELECT count(DISTINCT e.student_id) FILTER (WHERE e.type_id = 1) AS absent, "
+                + "count(DISTINCT e.student_id) FILTER (WHERE e.type_id = 2) AS late "
+                + "FROM " + Presences.dbSchema + ".event e "
+                + "INNER JOIN " + Presences.dbSchema + ".register r ON (r.id = e.register_id AND r.structure_id = ?) "
+                + "WHERE e.start_date >= ?::timestamp AND e.start_date <= ?::timestamp";
+        JsonArray params = new JsonArray().add(structureId).add(date + " 00:00:00").add(date + " 23:59:59");
+        Sql.getInstance().prepared(sql, params, SqlResult.validUniqueResultHandler(sqlRes -> {
+            if (sqlRes.isLeft()) {
+                renderError(request, new JsonObject().put("error", sqlRes.left().getValue()));
+                return;
+            }
+            int absent = sqlRes.right().getValue().getInteger("absent", 0);
+            int late = sqlRes.right().getValue().getInteger("late", 0);
+            String neo = "MATCH (s:Structure {id:{id}})<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-"
+                    + "(u:User {profiles:['Student']}) RETURN count(DISTINCT u) AS total";
+            Neo4j.getInstance().execute(neo, new JsonObject().put("id", structureId), Neo4jResult.validUniqueResultHandler(neoRes -> {
+                int total = neoRes.isRight() ? neoRes.right().getValue().getInteger("total", 0) : 0;
+                int present = Math.max(0, total - absent);
+                double rate = total > 0 ? Math.round((present * 1000.0) / total) / 10.0 : 0;
+                renderJson(request, new JsonObject()
+                        .put("total", total).put("absent", absent).put("late", late)
+                        .put("present", present).put("rate", rate));
+            }));
+        }));
+    }
+
     @Get("/events/export")
     @ApiDoc("Export events")
     @ResourceFilter(EventReadRight.class)
