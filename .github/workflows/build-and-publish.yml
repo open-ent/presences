@@ -122,27 +122,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REPO_URL="https://maven.pkg.github.com/${{ github.repository }}"
-          for MODULE_DIR in presences common incidents massmailing statistics-presences; do
-            if [ ! -f "${MODULE_DIR}/pom.xml" ]; then continue; fi
-            GROUP_ID=$(mvn help:evaluate -pl "${MODULE_DIR}" -Dexpression=project.groupId -q -DforceStdout 2>/dev/null)
-            ARTIFACT_ID=$(mvn help:evaluate -pl "${MODULE_DIR}" -Dexpression=project.artifactId -q -DforceStdout 2>/dev/null)
-            VERSION=$(mvn help:evaluate -pl "${MODULE_DIR}" -Dexpression=project.version -q -DforceStdout 2>/dev/null)
-            FAT_JAR="${MODULE_DIR}/target/${ARTIFACT_ID}-${VERSION}-fat.jar"
-            if [ -f "${FAT_JAR}" ]; then
-              echo "Publishing ${GROUP_ID}:${ARTIFACT_ID}:${VERSION}:fat"
-              mvn deploy:deploy-file \
-                -Dfile="${FAT_JAR}" \
-                -DgroupId="${GROUP_ID}" \
-                -DartifactId="${ARTIFACT_ID}" \
-                -Dversion="${VERSION}" \
-                -Dclassifier=fat \
-                -Dpackaging=jar \
-                -DrepositoryId=github \
-                -Durl="${REPO_URL}" \
-                -B
-            else
-              echo "Skipping ${MODULE_DIR}: fat JAR not found at ${FAT_JAR}"
-            fi
+          for FAT in $(find . -path "*/target/*-fat.jar"); do
+            BASE=$(basename "${FAT}" -fat.jar)
+            case "${BASE}" in *~*~*) ;; *) echo "skip ${BASE}"; continue;; esac
+            FAT_ABS=$(realpath "${FAT}")
+            GROUP_ID=${BASE%%~*}; REST=${BASE#*~}; ARTIFACT_ID=${REST%%~*}; VERSION=${REST#*~}
+            echo "Deploying ${GROUP_ID}:${ARTIFACT_ID}:${VERSION}:fat -> rct-nexus"
+            ( cd /tmp && mvn deploy:deploy-file -s /tmp/nx-settings.xml -Dfile="${FAT_ABS}" -DgroupId="${GROUP_ID}" -DartifactId="${ARTIFACT_ID}" -Dversion="${VERSION}" -Dclassifier=fat -Dpackaging=jar -DrepositoryId=pt-releases -Durl="https://rct-nexus.tech.fr/repository/maven-releases/" -B )
           done
 
       - name: Publish all fat JARs to rct-nexus
