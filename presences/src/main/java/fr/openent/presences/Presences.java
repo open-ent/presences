@@ -13,6 +13,7 @@ import fr.openent.presences.cron.UpdateEventRegularizationTask;
 import fr.openent.presences.db.DB;
 import fr.openent.presences.event.PresencesRepositoryEvents;
 import fr.openent.presences.service.CommonPresencesServiceFactory;
+import fr.openent.presences.service.NotificationSchedulerService;
 import fr.openent.presences.worker.CreateDailyPresenceWorker;
 import fr.openent.presences.worker.EventExportWorker;
 import fr.openent.presences.worker.PresencesExportWorker;
@@ -150,6 +151,11 @@ public class Presences extends BaseServer {
           addController(new ConfigController());
           addController(new StatisticsController());
           addController(new GroupingController(commonPresencesServiceFactory));
+
+          // Paramétrage par établissement des e-mails de notification + planificateur par structure
+          NotificationSchedulerService notificationScheduler = new NotificationSchedulerService(vertx, config);
+          addController(new NotificationSettingsController(notificationScheduler));
+          notificationScheduler.start();
 
           // Controller that create fake rights for widgets
           addController(new FakeRight());

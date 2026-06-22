@@ -98,7 +98,13 @@ public class StatisticsPresences extends BaseServer {
     }
 
     private void registerCodec() {
-        vertx.eventBus().registerCodec(codec);
+        // Le codec est enregistré au niveau de l'eventBus (durée de vie = JVM) : un re-déploiement à
+        // chaud du module le retrouve déjà présent. On ignore alors l'erreur pour permettre le hot-reload.
+        try {
+            vertx.eventBus().registerCodec(codec);
+        } catch (IllegalStateException e) {
+            log.info("[StatisticsPresences] Codec déjà enregistré, réutilisation : " + e.getMessage());
+        }
     }
 
     private void setSchemas() {

@@ -30,6 +30,7 @@ public class CreateDailyPresenceWorker extends BusModBase implements Handler<Mes
     private CommonPresencesServiceFactory commonPresencesServiceFactory;
 
     private EmailSender emailSender;
+    private fr.openent.presences.common.helper.NotificationEmailHelper notificationEmailHelper;
     private RegisterService registerService;
     private final Logger log = LoggerFactory.getLogger(CreateDailyPresenceWorker.class);
 
@@ -46,6 +47,7 @@ public class CreateDailyPresenceWorker extends BusModBase implements Handler<Mes
           this.commonPresencesServiceFactory = new CommonPresencesServiceFactory(vertx, storage, config, node);
           this.registerService = new DefaultRegisterService(commonPresencesServiceFactory);
           this.emailSender = EmailFactory.getInstance().getSender();
+          this.notificationEmailHelper = new fr.openent.presences.common.helper.NotificationEmailHelper(vertx, config);
           eb.consumer(this.getClass().getName(), this);
           return Future.succeededFuture();
         })
@@ -202,30 +204,16 @@ public class CreateDailyPresenceWorker extends BusModBase implements Handler<Mes
     }
 
     private void sendMail(String title, String message) {
+        // Liste de supervision globale (ent-core.yaml). Le détail par établissement est désormais
+        // piloté depuis le dashboard (cf. NotificationSchedulerService). E-mail habillé du layout ENT.
         JsonArray listMails = config.getJsonArray("mails-list-cron", new JsonArray());
 
         if (listMails.isEmpty()) {
             log.info(message);
         } else {
-            for (Object o : listMails) {
-                String mail = (String) o;
-                emailSender.sendEmail(
-                        null,
-                        mail,
-                        null,
-                        null,
-                        title,
-                        message,
-                        null,
-                        false,
-                        event -> {
-                            if (event.failed()) {
-                                log.error("[Presence@DailyRegistersCreation] Failed to send mail", event.cause());
-                            } else if ("error".equals(event.result().body().getString("status"))) {
-                                log.error("[Presence@DailyRegistersCreation] Failed to send mail", event.result().body().getString("message", ""));
-                            }
-                        });
-            }
+            notificationEmailHelper.sendToAll(
+                    fr.openent.presences.common.helper.NotificationEmailHelper.toRecipientList(listMails),
+                    title, "Rapport d'ouverture des appels", message);
         }
     }
 

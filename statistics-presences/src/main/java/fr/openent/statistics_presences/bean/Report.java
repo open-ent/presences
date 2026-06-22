@@ -92,6 +92,24 @@ public class Report {
         return result;
     }
 
+    /**
+     * Résumé de cet indicateur <strong>pour un établissement donné</strong> (utilisé pour le rapport
+     * de calcul par établissement). Renvoie {@code null} si la structure n'est pas concernée.
+     */
+    public JsonObject structureSummary(String structureId) {
+        if (this.reportStructureList == null) return null;
+        return this.reportStructureList.stream()
+                .filter(reportStructure -> structureId.equals(reportStructure.structureId))
+                .findFirst()
+                .map(reportStructure -> new JsonObject()
+                        .put(Field.NAME, this.indicator)
+                        .put(Field.NB_STUDENTS, reportStructure.reportStudentList.size())
+                        .put(Field.NB_STUDENTS_PROCESS, (int) reportStructure.reportStudentList.stream()
+                                .filter(reportStudent -> reportStudent.processed).count())
+                        .put(Field.ERRORCOUNT, this.failures.size()))
+                .orElse(null);
+    }
+
     public void completeStudent(String structureId, String studentId) {
         this.reportStructureList.stream()
                 .filter(reportStructure -> reportStructure.structureId.equals(structureId))

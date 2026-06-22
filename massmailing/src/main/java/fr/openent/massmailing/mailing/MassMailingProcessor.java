@@ -73,6 +73,10 @@ public abstract class MassMailingProcessor implements Mailing {
         return template;
     }
 
+    public String getStructure() {
+        return structure;
+    }
+
     public void process(Handler<Either<String, List<JsonObject>>> handler) {
         Promise<JsonObject> templatePromise = Promise.promise();
         Promise<JsonArray> relativePromise = Promise.promise();

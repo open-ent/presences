@@ -39,21 +39,34 @@ public class Mail extends MassMailingProcessor {
             }
 
             List<JsonObject> mails = event.right().getValue();
-            List<Future<JsonObject>> futures = new ArrayList<>();
-            for (JsonObject mail : mails) {
-                Promise<JsonObject> promise = Promise.promise();
-                futures.add(promise.future());
-                send(mail, FutureHelper.handlerEitherPromise(promise));
-            }
 
-            Future.join(futures).onComplete(asyncEvent -> {
-                if (asyncEvent.failed()) {
-                    String message = "[Massmailing@Mail::send] Failed to send mails";
-                    LOGGER.error(String.format("%s %s", message, asyncEvent.cause().getMessage()));
-                    handler.handle(new Either.Left<>(message));
-                }
-                else handler.handle(new Either.Right<>(asyncEvent.succeeded()));
-            });
+            // Bascule par établissement (dashboard) : si MASSMAILING est explicitement désactivé,
+            // on n'envoie aucun e-mail aux responsables. Absence de configuration = comportement historique.
+            fr.openent.presences.common.helper.NotificationSettingsReader
+                    .read(getStructure(), "MASSMAILING")
+                    .onComplete(settingEvent -> {
+                        JsonObject setting = settingEvent.succeeded() ? settingEvent.result() : null;
+                        if (setting != null && Boolean.FALSE.equals(setting.getBoolean("enabled"))) {
+                            LOGGER.info("[Massmailing@Mail] Envoi désactivé pour la structure " + getStructure());
+                            handler.handle(new Either.Right<>(true));
+                            return;
+                        }
+
+                        List<Future<JsonObject>> futures = new ArrayList<>();
+                        for (JsonObject mail : mails) {
+                            Promise<JsonObject> promise = Promise.promise();
+                            futures.add(promise.future());
+                            send(mail, FutureHelper.handlerEitherPromise(promise));
+                        }
+
+                        Future.join(futures).onComplete(asyncEvent -> {
+                            if (asyncEvent.failed()) {
+                                String message = "[Massmailing@Mail::send] Failed to send mails";
+                                LOGGER.error(String.format("%s %s", message, asyncEvent.cause().getMessage()));
+                                handler.handle(new Either.Left<>(message));
+                            } else handler.handle(new Either.Right<>(asyncEvent.succeeded()));
+                        });
+                    });
         });
     }
 
@@ -61,7 +74,9 @@ public class Mail extends MassMailingProcessor {
         String contact = mail.getString("contact");
         String message = mail.getString("message");
         String subject = I18n.getInstance().translate("massmailing.mail.subject", getTemplate().getDomain(), getTemplate().getLocale(), mail.getString("studentDisplayName").toUpperCase());
-        emailSender.sendEmail(null, contact, null, null, subject, message, null, false, event -> {
+        // Habillage du message dans le layout générique ENT (cohérence visuelle des e-mails du module).
+        String themedMessage = fr.openent.presences.common.helper.NotificationEmailHelper.wrapBody(subject, message);
+        emailSender.sendEmail(null, contact, null, null, subject, themedMessage, null, false, event -> {
             if (event.failed()) {
                 String errorMessage = "[Massmailing@Mail] Failed to send mail";
                 //TODO Réaliser une sauvegarde

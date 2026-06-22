@@ -1,6 +1,9 @@
 package fr.openent.statistics_presences.indicator;
 
+import fr.openent.presences.common.helper.NotificationEmailHelper;
+import fr.openent.presences.common.helper.NotificationSettingsReader;
 import fr.openent.presences.model.StructureStatisticsUser;
+import org.entcore.common.neo4j.Neo4j;
 import fr.openent.statistics_presences.StatisticsPresences;
 import fr.openent.statistics_presences.bean.Report;
 import fr.openent.statistics_presences.service.CommonServiceFactory;
@@ -28,6 +31,7 @@ public class ProcessingScheduledTask implements Handler<Long> {
     Logger log = LoggerFactory.getLogger(ProcessingScheduledTask.class);
     Vertx vertx;
     EmailSender emailSender;
+    fr.openent.presences.common.helper.NotificationEmailHelper notificationEmailHelper;
     JsonObject config;
     TemplateProcessor templateProcessor;
     Long start = null;
@@ -37,6 +41,7 @@ public class ProcessingScheduledTask implements Handler<Long> {
         this.vertx = vertx;
         this.config = config;
         this.emailSender = EmailFactory.getInstance().getSender();
+        this.notificationEmailHelper = new fr.openent.presences.common.helper.NotificationEmailHelper(vertx, config);
         this.statisticsPresencesService = commonServiceFactory.getStatisticsPresencesService();
     }
 
@@ -46,8 +51,7 @@ public class ProcessingScheduledTask implements Handler<Long> {
         initTemplateProcessor();
         this.statisticsPresencesService.fetchUsers()
                 .compose(this::processIndicators)
-                .compose(this::generateReport)
-                .compose(this::sendReport)
+                .compose(this::dispatchReports)
                 .compose(result -> this.statisticsPresencesService.clearWaitingList())
                 .onComplete(ar -> {
                     if (ar.failed()) {
@@ -184,28 +188,120 @@ public class ProcessingScheduledTask implements Handler<Long> {
         return promise.future();
     }
 
-    private Future<Void> sendReport(String report) {
+    /**
+     * Envoie deux niveaux de rapport de calcul des statistiques :
+     * <ul>
+     *   <li><b>consolidé</b> (toutes structures) → destinataires globaux {@code report-recipients}
+     *       (ent-core.yaml), typiquement l'académie ;</li>
+     *   <li><b>par établissement</b> → pour chaque structure ayant activé le type STATISTICS dans le
+     *       dashboard, un rapport limité à ses propres indicateurs, à ses destinataires.</li>
+     * </ul>
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Future<Void> dispatchReports(List<Report> reports) {
         Promise<Void> promise = Promise.promise();
         List<Future> futures = new ArrayList<>();
-        JsonArray recipients = config.getJsonArray("report-recipients", new JsonArray());
-        if (recipients.isEmpty()) {
-            log.info(report);
-            return Future.succeededFuture();
-        }
 
-        String title = String.format("[%s] Rapport de calcul statistiques", config.getString("host"));
-        for (int i = 0; i < recipients.size(); i++) {
-            Promise<Message<JsonObject>> emailFuture = Promise.promise();
-            emailFuture.future().onFailure(error -> log.error(String.format("[Statistics@%s::generateReport] Fail to send email %s",
-                    this.getClass().getSimpleName(), error.getMessage())));
-            futures.add(emailFuture.future());
-            emailSender.sendEmail(null, recipients.getString(i), null, null, title, report, null, false, emailFuture);
-        }
+        // 1. Rapport consolidé (académie) — destinataires globaux yaml + ceux configurés par un
+        //    super-admin dans le dashboard (structure virtuelle CONSOLIDATED_STRUCTURE_ID).
+        List<String> consolidatedFromYaml = NotificationEmailHelper
+                .toRecipientList(config.getJsonArray("report-recipients", new JsonArray()));
+        futures.add(Future.all(
+                generateReport(reports),
+                NotificationSettingsReader.read(NotificationSettingsReader.CONSOLIDATED_STRUCTURE_ID, "STATISTICS")
+        ).compose(cf -> {
+            String reportStr = cf.resultAt(0);
+            JsonObject consolidatedRow = cf.resultAt(1);
+            List<String> consolidated = new ArrayList<>(consolidatedFromYaml);
+            if (consolidatedRow != null && Boolean.TRUE.equals(consolidatedRow.getBoolean("enabled"))) {
+                NotificationSettingsReader.toRecipients(consolidatedRow.getValue("recipients"))
+                        .forEach(r -> { if (!consolidated.contains(r)) consolidated.add(r); });
+            }
+            if (consolidated.isEmpty()) {
+                log.info(reportStr);
+                return Future.succeededFuture();
+            }
+            String subject = String.format("[%s] Rapport de calcul statistiques (consolidé)", config.getString("host"));
+            return sendThemed(consolidated, subject, "Rapport de calcul statistiques — consolidé", reportToHtml(reportStr));
+        }));
+
+        // 2. Rapports par établissement — structures ayant activé STATISTICS dans le dashboard
+        //    (en excluant la structure virtuelle du rapport consolidé).
+        futures.add(NotificationSettingsReader.readEnabled("STATISTICS").compose(rows -> {
+            List<Future> perStructure = new ArrayList<>();
+            for (Object o : rows) {
+                JsonObject row = (JsonObject) o;
+                String structureId = row.getString("structure_id");
+                if (NotificationSettingsReader.CONSOLIDATED_STRUCTURE_ID.equals(structureId)) continue;
+                List<String> recipients = NotificationEmailHelper.toRecipientList(row.getJsonArray("recipients"));
+                if (recipients.isEmpty()) continue;
+                perStructure.add(structureName(structureId).compose(name -> {
+                    String label = name != null ? name : structureId;
+                    String subject = String.format("[%s] Rapport de calcul statistiques - %s", config.getString("host"), label);
+                    return sendThemed(recipients, subject, "Rapport de calcul statistiques",
+                            structureReportHtml(reports, structureId, label));
+                }));
+            }
+            return perStructure.isEmpty() ? Future.succeededFuture() : CompositeFuture.join(perStructure).mapEmpty();
+        }));
 
         CompositeFuture.join(futures)
-                .onSuccess(ar -> promise.complete())
+                .onSuccess(res -> promise.complete())
                 .onFailure(promise::fail);
+        return promise.future();
+    }
 
+    /** Envoie un e-mail thémé (layout ENT) à plusieurs destinataires. */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Future<Void> sendThemed(List<String> recipients, String subject, String title, String bodyHtml) {
+        Promise<Void> promise = Promise.promise();
+        String themed = notificationEmailHelper.wrap(title, bodyHtml);
+        List<Future> futures = new ArrayList<>();
+        for (String recipient : recipients) {
+            Promise<Message<JsonObject>> emailFuture = Promise.promise();
+            emailFuture.future().onFailure(error -> log.error(String.format(
+                    "[Statistics@%s::sendThemed] Fail to send email %s", this.getClass().getSimpleName(), error.getMessage())));
+            futures.add(emailFuture.future());
+            emailSender.sendEmail(null, recipient, null, null, subject, themed, null, false, emailFuture);
+        }
+        CompositeFuture.join(futures).onComplete(ar -> promise.complete());
+        return promise.future();
+    }
+
+    /** Rapport texte (consolidé) en HTML, préformaté pour conserver la mise en forme. */
+    private String reportToHtml(String report) {
+        return "<pre style=\"font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap;\">"
+                + report.replace("<", "&lt;").replace(">", "&gt;") + "</pre>";
+    }
+
+    /** Rapport de calcul limité à un établissement (un indicateur par ligne). */
+    private String structureReportHtml(List<Report> reports, String structureId, String label) {
+        StringBuilder body = new StringBuilder("<p>Rapport de calcul des indicateurs de présence pour l'établissement <strong>")
+                .append(label.replace("<", "&lt;").replace(">", "&gt;")).append("</strong>.</p><ul>");
+        boolean any = false;
+        for (Report report : reports) {
+            JsonObject summary = report.structureSummary(structureId);
+            if (summary == null) continue;
+            any = true;
+            body.append("<li><strong>").append(summary.getString("name", "")).append("</strong> : ")
+                    .append(summary.getInteger("nbStudentsProcess", 0)).append(" / ")
+                    .append(summary.getInteger("nbStudents", 0)).append(" élève(s) traité(s)");
+            int errors = summary.getInteger("errorCount", 0);
+            if (errors > 0) body.append(" — ").append(errors).append(" erreur(s)");
+            body.append("</li>");
+        }
+        if (!any) body.append("<li>Aucun indicateur recalculé pour cet établissement.</li>");
+        body.append("</ul>");
+        return body.toString();
+    }
+
+    /** Résout le nom d'un établissement (Neo4j). */
+    private Future<String> structureName(String structureId) {
+        Promise<String> promise = Promise.promise();
+        String query = "MATCH (s:Structure {id: {id}}) RETURN s.name AS name;";
+        JsonObject params = new JsonObject().put("id", structureId);
+        Neo4j.getInstance().execute(query, params, org.entcore.common.neo4j.Neo4jResult.validUniqueResultHandler(event ->
+                promise.complete(event.isLeft() ? null : event.right().getValue().getString("name"))));
         return promise.future();
     }
 }

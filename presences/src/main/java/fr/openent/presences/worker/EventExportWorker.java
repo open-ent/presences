@@ -28,9 +28,11 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
 
     Logger log = LoggerFactory.getLogger(EventExportWorker.class);
     EmailSender emailSender;
+    private fr.openent.presences.common.helper.NotificationEmailHelper notificationEmailHelper;
     private ArchiveService archiveService;
     String locale;
     String domain;
+    private JsonArray exportStructures = new JsonArray();
 
     @Override
     public void start(final Promise<Void> startPromise) {
@@ -44,6 +46,7 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
           final String node = ((Map<String, String>) storageFactoryAndNode.resultAt(1)).get("node");
           CommonPresencesServiceFactory commonPresencesServiceFactory = new CommonPresencesServiceFactory(vertx, storage, config, node);
           this.emailSender = EmailFactory.getInstance().getSender();
+          this.notificationEmailHelper = new fr.openent.presences.common.helper.NotificationEmailHelper(vertx, config);
           this.archiveService = commonPresencesServiceFactory.archiveService();
           eb.consumer(this.getClass().getName(), this);
           return Future.succeededFuture();
@@ -60,6 +63,7 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
         eventMessage.reply(new JsonObject().put("status", "ok"));
         log.info("[" + this.getClass().getSimpleName() + "] receiving from route /event/archives/export");
         JsonArray structures = eventMessage.body().getJsonArray(Field.STRUCTURE, new JsonArray());
+        this.exportStructures = structures;
         locale = eventMessage.body().getString(Field.LOCALE);
         domain = eventMessage.body().getString(Field.DOMAIN);
 
@@ -75,9 +79,6 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
         log.info("[" + this.getClass().getSimpleName() + "] - sendReport");
 
         Promise<Void> promise = Promise.promise();
-        List<Future<Void>> futures = new ArrayList<>();
-
-        JsonArray recipients = config.getJsonArray("mails-list-export", new JsonArray());
 
         String title = String.format("[%s] Export event", config.getString("host"));
 
@@ -91,20 +92,37 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
             filesToSend.add(formattedFile);
         });
 
-        for (int i = 0; i < recipients.size(); i++) {
-            futures.add(sendMail(recipients.getString(i), title, filesToSend));
+        // Destinataires = liste globale (ent-core.yaml) + destinataires activés des établissements exportés (dashboard).
+        List<String> structureIds = new ArrayList<>();
+        for (int i = 0; i < exportStructures.size(); i++) {
+            structureIds.add(exportStructures.getString(i));
         }
+        List<String> baseRecipients = fr.openent.presences.common.helper.NotificationEmailHelper
+                .toRecipientList(config.getJsonArray("mails-list-export", new JsonArray()));
 
-        Future.join(futures)
-                .onSuccess(ar -> promise.complete())
-                .onFailure(promise::fail);
+        fr.openent.presences.common.helper.NotificationSettingsReader
+                .collectEnabledRecipients("EVENT_EXPORT", structureIds)
+                .onComplete(ar -> {
+                    List<String> recipients = new ArrayList<>(baseRecipients);
+                    if (ar.succeeded()) {
+                        ar.result().forEach(r -> { if (!recipients.contains(r)) recipients.add(r); });
+                    }
+                    List<Future<Void>> futures = new ArrayList<>();
+                    for (String recipient : recipients) {
+                        futures.add(sendMail(recipient, title, filesToSend));
+                    }
+                    Future.join(futures)
+                            .onSuccess(res -> promise.complete())
+                            .onFailure(promise::fail);
+                });
 
         return promise.future();
     }
 
     private String description() {
-        return "<div>" + I18n.getInstance().translate("presences.csv.report.from", domain, locale) + " " +
+        String body = "<div>" + I18n.getInstance().translate("presences.csv.report.from", domain, locale) + " " +
                 DateHelper.getCurrentDayWithHours() + "</div>";
+        return notificationEmailHelper.wrap("Export des événements", body);
     }
 
     private Future<Void> sendMail(String recipient, String title, JsonArray attachments) {
