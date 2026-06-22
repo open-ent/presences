@@ -112,47 +112,110 @@ public class NotificationSchedulerService {
 
     private void buildAndSend(String structureId, java.util.List<String> recipients) {
         String today = DateHelper.getCurrentDay();
-        countRegisters(structureId, today).onComplete(countResult -> {
-            int count = countResult.succeeded() ? countResult.result() : 0;
-            structureName(structureId).onComplete(nameResult -> {
-                String name = nameResult.succeeded() && nameResult.result() != null ? nameResult.result() : structureId;
+        // Résout le nom + les établissements descendants (cas d'un conteneur Académie/Collèges/Lycées).
+        resolveTargets(structureId).onComplete(targetsResult -> {
+            JsonObject targets = targetsResult.succeeded() ? targetsResult.result() : new JsonObject();
+            String name = targets.getString("name", structureId);
+            // Établissements concernés : les descendants si conteneur, sinon la structure elle-même.
+            JsonArray children = targets.getJsonArray("children", new JsonArray());
+            boolean isGroup = !children.isEmpty();
+            JsonArray targetIds = new JsonArray();
+            Map<String, String> nameById = new java.util.HashMap<>();
+            if (isGroup) {
+                for (int i = 0; i < children.size(); i++) {
+                    JsonObject c = children.getJsonObject(i);
+                    targetIds.add(c.getString("id"));
+                    nameById.put(c.getString("id"), c.getString("name", c.getString("id")));
+                }
+            } else {
+                targetIds.add(structureId);
+                nameById.put(structureId, name);
+            }
+
+            countRegistersByStructure(targetIds, today).onComplete(countResult -> {
+                JsonObject counts = countResult.succeeded() ? countResult.result() : new JsonObject();
+                int total = 0;
+                for (String id : counts.fieldNames()) total += counts.getInteger(id, 0);
+
                 String subject = "[Présences] Rapport d'ouverture des appels - " + name;
                 String title = "Rapport d'ouverture des appels";
-                String body = "<p>Bonjour,</p>" +
-                        "<p>Voici le récapitulatif des appels ouverts pour l'établissement " +
-                        "<strong>" + escape(name) + "</strong> à la date du " +
-                        DateHelper.getCurrentDayWithHours() + ".</p>" +
-                        "<p style=\"font-size:16px;\"><strong>" + count + "</strong> appel(s) ouvert(s) aujourd'hui.</p>";
-                emailHelper.sendToAll(recipients, subject, title, body);
+                StringBuilder body = new StringBuilder("<p>Bonjour,</p>");
+                if (isGroup) {
+                    body.append("<p>Récapitulatif des appels ouverts pour <strong>").append(escape(name))
+                            .append("</strong> (").append(targetIds.size()).append(" établissement(s)) à la date du ")
+                            .append(DateHelper.getCurrentDayWithHours()).append(".</p>")
+                            .append("<p style=\"font-size:16px;\"><strong>").append(total)
+                            .append("</strong> appel(s) ouvert(s) aujourd'hui au total.</p>")
+                            .append("<table style=\"border-collapse:collapse;\">")
+                            .append("<thead><tr><td style=\"padding:4px 12px;border-bottom:1px solid #ccc;\"><strong>Établissement</strong></td>")
+                            .append("<td style=\"padding:4px 12px;border-bottom:1px solid #ccc;\"><strong>Appels ouverts</strong></td></tr></thead><tbody>");
+                    // Tri par nom pour un rendu lisible.
+                    java.util.List<String> ids = new java.util.ArrayList<>(nameById.keySet());
+                    ids.sort((a, b) -> nameById.get(a).compareToIgnoreCase(nameById.get(b)));
+                    for (String id : ids) {
+                        body.append("<tr><td style=\"padding:3px 12px;\">").append(escape(nameById.get(id)))
+                                .append("</td><td style=\"padding:3px 12px;\">").append(counts.getInteger(id, 0))
+                                .append("</td></tr>");
+                    }
+                    body.append("</tbody></table>");
+                } else {
+                    body.append("<p>Récapitulatif des appels ouverts pour l'établissement <strong>").append(escape(name))
+                            .append("</strong> à la date du ").append(DateHelper.getCurrentDayWithHours()).append(".</p>")
+                            .append("<p style=\"font-size:16px;\"><strong>").append(total)
+                            .append("</strong> appel(s) ouvert(s) aujourd'hui.</p>");
+                }
+                emailHelper.sendToAll(recipients, subject, title, body.toString());
             });
         });
     }
 
-    private io.vertx.core.Future<Integer> countRegisters(String structureId, String day) {
-        io.vertx.core.Promise<Integer> promise = io.vertx.core.Promise.promise();
-        String query = "SELECT COUNT(*)::int AS count FROM " + Presences.dbSchema + ".register " +
-                "WHERE structure_id = ? AND start_date::date = ?::date;";
-        JsonArray params = new JsonArray().add(structureId).add(day);
-        sql.prepared(query, params, SqlResult.validUniqueResultHandler(event -> {
+    /** Nom de la structure + ses établissements descendants (vide si la structure est une feuille). */
+    private io.vertx.core.Future<JsonObject> resolveTargets(String structureId) {
+        io.vertx.core.Promise<JsonObject> promise = io.vertx.core.Promise.promise();
+        String query = "MATCH (s:Structure {id: {id}}) " +
+                "OPTIONAL MATCH (s)<-[:HAS_ATTACHMENT*1..]-(d:Structure) " +
+                "RETURN s.name AS name, collect(DISTINCT {id: d.id, name: d.name}) AS children;";
+        neo4j.execute(query, new JsonObject().put("id", structureId), Neo4jResult.validUniqueResultHandler(event -> {
             if (event.isLeft()) {
-                promise.complete(0);
+                promise.complete(new JsonObject());
             } else {
-                promise.complete(event.right().getValue().getInteger("count", 0));
+                JsonObject row = event.right().getValue();
+                // Neo4j renvoie un élément {id:null} quand il n'y a aucun descendant : on le filtre.
+                JsonArray rawChildren = row.getJsonArray("children", new JsonArray());
+                JsonArray children = new JsonArray();
+                for (int i = 0; i < rawChildren.size(); i++) {
+                    JsonObject c = rawChildren.getJsonObject(i);
+                    if (c != null && c.getString("id") != null) children.add(c);
+                }
+                promise.complete(new JsonObject().put("name", row.getString("name")).put("children", children));
             }
         }));
         return promise.future();
     }
 
-    private io.vertx.core.Future<String> structureName(String structureId) {
-        io.vertx.core.Promise<String> promise = io.vertx.core.Promise.promise();
-        String query = "MATCH (s:Structure {id: {id}}) RETURN s.name AS name;";
-        JsonObject params = new JsonObject().put("id", structureId);
-        neo4j.execute(query, params, Neo4jResult.validUniqueResultHandler(event -> {
-            if (event.isLeft()) {
-                promise.complete(null);
-            } else {
-                promise.complete(event.right().getValue().getString("name"));
+    /** Nombre d'appels ouverts du jour, par structure, pour un ensemble d'identifiants. */
+    private io.vertx.core.Future<JsonObject> countRegistersByStructure(JsonArray structureIds, String day) {
+        io.vertx.core.Promise<JsonObject> promise = io.vertx.core.Promise.promise();
+        if (structureIds.isEmpty()) {
+            promise.complete(new JsonObject());
+            return promise.future();
+        }
+        String query = "SELECT structure_id, COUNT(*)::int AS count FROM " + Presences.dbSchema + ".register " +
+                "WHERE structure_id IN " + Sql.listPrepared(structureIds.getList()) +
+                " AND start_date::date = ?::date GROUP BY structure_id;";
+        JsonArray params = new JsonArray();
+        structureIds.forEach(params::add);
+        params.add(day);
+        sql.prepared(query, params, SqlResult.validResultHandler(event -> {
+            JsonObject counts = new JsonObject();
+            if (event.isRight()) {
+                JsonArray rows = event.right().getValue();
+                for (int i = 0; i < rows.size(); i++) {
+                    JsonObject r = rows.getJsonObject(i);
+                    counts.put(r.getString("structure_id"), r.getInteger("count", 0));
+                }
             }
+            promise.complete(counts);
         }));
         return promise.future();
     }
