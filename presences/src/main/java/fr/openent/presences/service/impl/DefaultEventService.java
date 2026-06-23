@@ -1292,24 +1292,21 @@ public class DefaultEventService extends DBService implements EventService {
                             return;
                         }
 
-                        JsonObject slotSetting = evt.right().getValue();
-                        if (slotSetting.containsKey("end_of_half_day") && slotSetting.getString("end_of_half_day") != null) {
-                            String halfOfDay = slotSetting.getString("end_of_half_day");
-                            JsonObject morningQuery = getEventQuery(eventType, students, structure,
-                                    reasonsId, massmailed, null, startDate, endDate, noReasons, recoveryMethod, defaultStartTime, halfOfDay, null, null, true, regularized);
-                            JsonObject afternoonQuery = getEventQuery(eventType, students, structure,
-                                    reasonsId, massmailed, null, startDate, endDate, noReasons, recoveryMethod, halfOfDay, defaultEndTime, null, null, true, regularized);
-                            String query = "WITH count_by_user AS (WITH events as (" + morningQuery.getString("query") + " UNION ALL " + afternoonQuery.getString("query") + ") " +
-                                    "SELECT count(*), student_id FROM events GROUP BY student_id) SELECT * FROM count_by_user WHERE count >= " + startAt;
-                            JsonArray params = new JsonArray()
-                                    .addAll(morningQuery.getJsonArray("params"))
-                                    .addAll(afternoonQuery.getJsonArray("params"));
-                            Sql.getInstance().prepared(query, params, SqlResult.validResultHandler(handler));
-                        } else {
-                            String message = "[Presences@DefaultEventService] Structure does not initialize end of half day";
-                            LOGGER.error(message);
-                            handler.handle(new Either.Left<>(message));
-                        }
+                        JsonObject slotSetting = evt.right() != null ? evt.right().getValue() : null;
+                        // Borne de demi-journée : si la structure ne l'a pas configurée (ou si le bus
+                        // ne la renvoie pas), on retombe sur midi plutôt que de planter le décompte.
+                        String halfOfDay = (slotSetting != null && slotSetting.getString("end_of_half_day") != null)
+                                ? slotSetting.getString("end_of_half_day") : "12:00:00";
+                        JsonObject morningQuery = getEventQuery(eventType, students, structure,
+                                reasonsId, massmailed, null, startDate, endDate, noReasons, recoveryMethod, defaultStartTime, halfOfDay, null, null, true, regularized);
+                        JsonObject afternoonQuery = getEventQuery(eventType, students, structure,
+                                reasonsId, massmailed, null, startDate, endDate, noReasons, recoveryMethod, halfOfDay, defaultEndTime, null, null, true, regularized);
+                        String query = "WITH count_by_user AS (WITH events as (" + morningQuery.getString("query") + " UNION ALL " + afternoonQuery.getString("query") + ") " +
+                                "SELECT count(*), student_id FROM events GROUP BY student_id) SELECT * FROM count_by_user WHERE count >= " + startAt;
+                        JsonArray params = new JsonArray()
+                                .addAll(morningQuery.getJsonArray("params"))
+                                .addAll(afternoonQuery.getJsonArray("params"));
+                        Sql.getInstance().prepared(query, params, SqlResult.validResultHandler(handler));
                     });
             }
         });
