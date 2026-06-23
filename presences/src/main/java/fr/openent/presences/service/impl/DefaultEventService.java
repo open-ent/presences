@@ -1270,7 +1270,10 @@ public class DefaultEventService extends DBService implements EventService {
             }
             JsonObject settings = event.right().getValue();
             String recoveryMethod = recoveryMethodUsed != null ? recoveryMethodUsed : settings.getString("event_recovery_method");
-            switch (EventRecoveryMethodEnum.getInstanceFromString(recoveryMethod)) {
+            EventRecoveryMethodEnum recoveryEnum = EventRecoveryMethodEnum.getInstanceFromString(recoveryMethod);
+            // Méthode de récupération inconnue/absente : on retombe sur HALF_DAY plutôt que de crasher (NPE).
+            if (recoveryEnum == null) recoveryEnum = EventRecoveryMethodEnum.HALF_DAY;
+            switch (recoveryEnum) {
                 case DAY:
                 case HOUR: {
                     JsonObject eventsQuery = getEventQuery(eventType, students, structure, reasonsId,
