@@ -36,6 +36,21 @@ export interface Settings {
   allow_multiple_slots?: boolean;
 }
 
+/** Corps de POST /presences/reason (cf. jsonschema/reasonCreate.json, tous requis). */
+export interface ReasonInput {
+  structureId: string;
+  label: string;
+  absenceCompliance: boolean;
+  proving: boolean;
+  excludeAlertRegularised: boolean;
+  excludeAlertNoRegularised: boolean;
+}
+
+function xsrfHeader(): Record<string, string> {
+  const m = typeof document !== 'undefined' ? document.cookie.match(/XSRF-TOKEN=([^;]+)/) : null;
+  return m ? { 'X-XSRF-TOKEN': decodeURIComponent(m[1]) } : {};
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(String(res.status));
   const text = await res.text();
@@ -43,6 +58,7 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 const base = { credentials: 'include' as const };
+const mutHeaders = () => ({ 'Content-Type': 'application/json', ...xsrfHeader() });
 
 // ── Référentiels de paramétrage (lecture seule) ────────────────────────────────
 /** Motifs d'absence (au moins un motif système présent après init). */
@@ -61,4 +77,17 @@ export const getDisciplines = async (structureId: string): Promise<Discipline[]>
 export const getSettings = async (structureId: string): Promise<Settings> =>
   json<Settings>(await fetch(`/presences/structures/${structureId}/settings`, base));
 
-export const api = { getReasons, getActions, getDisciplines, getSettings };
+// ── Écriture (paramétrage des motifs) ──────────────────────────────────────────
+/** Crée un motif d'absence (POST /presences/reason). Renvoie l'id créé. */
+export const createReason = async (input: ReasonInput): Promise<{ id: number }> =>
+  json<{ id: number }>(
+    await fetch(`/presences/reason`, { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify(input) }),
+  );
+
+/** Supprime un motif d'absence (DELETE /presences/reason?id=). */
+export const deleteReason = async (id: number): Promise<void> => {
+  const res = await fetch(`/presences/reason?id=${id}`, { ...base, method: 'DELETE', headers: xsrfHeader() });
+  if (!res.ok && res.status !== 204) throw new Error(String(res.status));
+};
+
+export const api = { getReasons, getActions, getDisciplines, getSettings, createReason, deleteReason };
