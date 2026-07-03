@@ -4,7 +4,7 @@ import { FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
-import { seuil, visibleByLabel } from '../utils';
+import { ouiNon, seuil, visibleByLabel } from '../utils';
 
 /** Paramétrage des présences : motifs d'absence (créer/supprimer), actions, dispositifs, réglages d'alerte. */
 export function Dashboard() {
@@ -172,6 +172,7 @@ export function Dashboard() {
               <tr><td>{t('presences.alert.lateness', { defaultValue: 'Retards' })}</td><td>{seuil(settings.alert_lateness_threshold)}</td></tr>
               <tr><td>{t('presences.alert.incident', { defaultValue: 'Incidents' })}</td><td>{seuil(settings.alert_incident_threshold)}</td></tr>
               <tr><td>{t('presences.alert.notebook', { defaultValue: 'Oublis de carnet' })}</td><td>{seuil(settings.alert_forgotten_notebook_threshold)}</td></tr>
+              <tr><td>{t('presences.multipleSlots', { defaultValue: 'Appels multiples (cours > 1h)' })}</td><td>{ouiNon(settings.allow_multiple_slots)}</td></tr>
             </tbody>
           </table>
         )}
