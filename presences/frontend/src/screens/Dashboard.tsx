@@ -1,14 +1,16 @@
 import { useEdificeClient } from '@open-ent/react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { seuil, visibleByLabel } from '../utils';
 
-/** Paramétrage des présences : motifs d'absence, actions, dispositifs, réglages d'alerte. */
+/** Paramétrage des présences : motifs d'absence (créer/supprimer), actions, dispositifs, réglages d'alerte. */
 export function Dashboard() {
   const { t } = useTranslation(['presences', 'common']);
   const { user, init } = useEdificeClient();
+  const qc = useQueryClient();
   const structureId = user?.structures?.[0] ?? '';
 
   const reasonsQuery = useQuery({ queryKey: ['pres', 'reasons', structureId], queryFn: () => api.getReasons(structureId), enabled: !!structureId });
@@ -20,6 +22,32 @@ export function Dashboard() {
   const actions = visibleByLabel(actionsQuery.data ?? []);
   const disciplines = visibleByLabel(disciplinesQuery.data ?? []);
   const settings = settingsQuery.data;
+
+  // Création / suppression de motifs d'absence
+  const [reasonLabel, setReasonLabel] = useState('');
+  const [reasonProving, setReasonProving] = useState(true);
+  const [reasonError, setReasonError] = useState('');
+  const invalidateReasons = () => qc.invalidateQueries({ queryKey: ['pres', 'reasons', structureId] });
+  const createReasonMut = useMutation({
+    mutationFn: () =>
+      api.createReason({
+        structureId,
+        label: reasonLabel.trim(),
+        absenceCompliance: false,
+        proving: reasonProving,
+        excludeAlertRegularised: false,
+        excludeAlertNoRegularised: false,
+      }),
+    onSuccess: () => { setReasonLabel(''); setReasonError(''); invalidateReasons(); },
+    onError: () => setReasonError(t('presences.reason.error', { defaultValue: "La création du motif a échoué." })),
+  });
+  const deleteReasonMut = useMutation({ mutationFn: (id: number) => api.deleteReason(id), onSuccess: invalidateReasons });
+  const onAddReason = (e: FormEvent) => {
+    e.preventDefault();
+    if (!reasonLabel.trim()) { setReasonError(t('presences.reason.label.required', { defaultValue: 'Le libellé est obligatoire.' })); return; }
+    setReasonError('');
+    createReasonMut.mutate();
+  };
 
   if (init && !structureId) {
     return (
@@ -53,7 +81,44 @@ export function Dashboard() {
       </p>
 
       <div className="d-flex gap-16 flex-wrap align-items-start mb-16">
-        {list(t('presences.reasons', { defaultValue: "Motifs d'absence" }), reasons.length, reasonsQuery.isLoading, reasons, 'presences.reasons.empty', 'Aucun motif.')}
+        {/* Motifs d'absence : liste + création + suppression */}
+        <section className="card p-16 flex-grow-1" style={{ minWidth: 300 }}>
+          <h2 style={{ fontSize: 18 }} className="mb-12">
+            {t('presences.reasons', { defaultValue: "Motifs d'absence" })}{' '}
+            <span className="text-muted" style={{ fontSize: 14 }}>({reasons.length})</span>
+          </h2>
+          <form className="d-flex gap-8 align-items-end flex-wrap mb-8" onSubmit={onAddReason}>
+            <div className="flex-grow-1">
+              <label htmlFor="reason-label" className="form-label">{t('presences.reason.label', { defaultValue: 'Nouveau motif' })}</label>
+              <input id="reason-label" className="form-control" value={reasonLabel} onChange={(e) => setReasonLabel(e.target.value)} />
+            </div>
+            <div className="form-check d-flex align-items-center gap-4" style={{ paddingBottom: 8 }}>
+              <input id="reason-proving" type="checkbox" className="form-check-input" checked={reasonProving} onChange={(e) => setReasonProving(e.target.checked)} />
+              <label htmlFor="reason-proving" className="form-check-label">{t('presences.reason.proving', { defaultValue: 'Justificatif requis' })}</label>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={createReasonMut.isPending}>{t('presences.reason.add', { defaultValue: 'Ajouter' })}</button>
+          </form>
+          {reasonError && <div className="alert alert-warning" role="alert">{reasonError}</div>}
+          {reasonsQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
+          {!reasonsQuery.isLoading && reasons.length === 0 && <p className="text-muted">{t('presences.reasons.empty', { defaultValue: 'Aucun motif.' })}</p>}
+          {reasons.length > 0 && (
+            <ul className="list-unstyled mb-0">
+              {reasons.map((r) => (
+                <li key={r.id} className="d-flex justify-content-between align-items-center py-4 border-bottom">
+                  <span>{r.label}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link p-0 text-danger"
+                    onClick={() => { if (window.confirm(t('presences.reason.delete.confirm', { defaultValue: 'Supprimer ce motif ?' }))) deleteReasonMut.mutate(r.id); }}
+                  >
+                    {t('presences.delete', { defaultValue: 'Supprimer' })}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         {list(t('presences.actions', { defaultValue: 'Actions' }), actions.length, actionsQuery.isLoading, actions, 'presences.actions.empty', 'Aucune action.')}
         {list(t('presences.disciplines', { defaultValue: 'Dispositifs' }), disciplines.length, disciplinesQuery.isLoading, disciplines, 'presences.disciplines.empty', 'Aucun dispositif.')}
       </div>
