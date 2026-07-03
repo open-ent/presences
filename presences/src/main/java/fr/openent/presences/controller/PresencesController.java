@@ -54,6 +54,18 @@ public class PresencesController extends ControllerHelper {
     @ApiDoc("Render view")
     @SecuredAction("view")
     public void view(HttpServerRequest request) {
+        // CCTP 51C — bascule AngularJS/React. Défaut piloté par la conf `frontend-ui`
+        // (fallback "angular"), surchargée à la demande par `?ui=react|angular`.
+        // Court-circuit propre : la vue React ne dépend pas de l'activation de structure ci-dessous
+        // (déjà réalisée à l'init de la suite ; l'accès Angular la déclenche de toute façon).
+        final String uiParam = request.params().get("ui");
+        final String frontendUi = "react".equals(config.getString("frontend-ui", "angular")) ? "react" : "angular";
+        final String ui = ("react".equals(uiParam) || "angular".equals(uiParam)) ? uiParam : frontendUi;
+        if ("react".equals(ui)) {
+            renderView(request, new JsonObject(), "presences-react.html", null);
+            eventStore.createAndStoreEvent("ACCESS", request);
+            return;
+        }
         UserUtils.getUserInfos(eb, request, user -> {
             JsonObject action = new JsonObject()
                     .put(Field.ACTION, "user.getActivesStructure")
