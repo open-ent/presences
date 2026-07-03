@@ -90,4 +90,38 @@ export const deleteReason = async (id: number): Promise<void> => {
   if (!res.ok && res.status !== 204) throw new Error(String(res.status));
 };
 
-export const api = { getReasons, getActions, getDisciplines, getSettings, createReason, deleteReason };
+/** Crée une action (POST /presences/action). L'abréviation est dérivée du libellé si absente. */
+export const createAction = async (structureId: string, label: string, abbreviation?: string): Promise<{ id: number }> =>
+  json<{ id: number }>(
+    await fetch(`/presences/action`, {
+      ...base,
+      method: 'POST',
+      headers: mutHeaders(),
+      body: JSON.stringify({ structureId, label, abbreviation: (abbreviation || label).slice(0, 8) }),
+    }),
+  );
+
+/** Supprime une action (DELETE /presences/action?id=). */
+export const deleteAction = async (id: number): Promise<void> => {
+  const res = await fetch(`/presences/action?id=${id}`, { ...base, method: 'DELETE', headers: xsrfHeader() });
+  if (!res.ok && res.status !== 204) throw new Error(String(res.status));
+};
+
+/** Crée un dispositif (POST /presences/discipline). */
+export const createDiscipline = async (structureId: string, label: string): Promise<{ id: number }> =>
+  json<{ id: number }>(
+    await fetch(`/presences/discipline`, { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify({ structureId, label }) }),
+  );
+
+/** Supprime un dispositif (DELETE /presences/discipline?id=). */
+export const deleteDiscipline = async (id: number): Promise<void> => {
+  const res = await fetch(`/presences/discipline?id=${id}`, { ...base, method: 'DELETE', headers: xsrfHeader() });
+  if (!res.ok && res.status !== 204) throw new Error(String(res.status));
+};
+
+export const api = {
+  getReasons, getActions, getDisciplines, getSettings,
+  createReason, deleteReason,
+  createAction, deleteAction,
+  createDiscipline, deleteDiscipline,
+};

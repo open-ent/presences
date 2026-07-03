@@ -49,6 +49,16 @@ export function Dashboard() {
     createReasonMut.mutate();
   };
 
+  // Création / suppression d'actions et de dispositifs (même pattern CRUD)
+  const [actionLabel, setActionLabel] = useState('');
+  const [disciplineLabel, setDisciplineLabel] = useState('');
+  const invalidateActions = () => qc.invalidateQueries({ queryKey: ['pres', 'actions', structureId] });
+  const invalidateDisciplines = () => qc.invalidateQueries({ queryKey: ['pres', 'disciplines', structureId] });
+  const createActionMut = useMutation({ mutationFn: () => api.createAction(structureId, actionLabel.trim()), onSuccess: () => { setActionLabel(''); invalidateActions(); } });
+  const deleteActionMut = useMutation({ mutationFn: (id: number) => api.deleteAction(id), onSuccess: invalidateActions });
+  const createDisciplineMut = useMutation({ mutationFn: () => api.createDiscipline(structureId, disciplineLabel.trim()), onSuccess: () => { setDisciplineLabel(''); invalidateDisciplines(); } });
+  const deleteDisciplineMut = useMutation({ mutationFn: (id: number) => api.deleteDiscipline(id), onSuccess: invalidateDisciplines });
+
   if (init && !structureId) {
     return (
       <div>
@@ -60,14 +70,32 @@ export function Dashboard() {
     );
   }
 
-  const list = (label: string, count: number, loading: boolean, items: Array<{ id: number; label: string }>, emptyKey: string, emptyDefault: string) => (
-    <section className="card p-16 flex-grow-1" style={{ minWidth: 240 }}>
-      <h2 style={{ fontSize: 18 }} className="mb-12">{label} <span className="text-muted" style={{ fontSize: 14 }}>({count})</span></h2>
-      {loading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-      {!loading && items.length === 0 && <p className="text-muted">{t(emptyKey, { defaultValue: emptyDefault })}</p>}
-      {items.length > 0 && (
+  // Carte CRUD générique : liste + formulaire d'ajout (un libellé) + suppression par ligne.
+  const crudCard = (opts: {
+    title: string; items: Array<{ id: number; label: string }>; loading: boolean; emptyText: string;
+    inputId: string; value: string; setValue: (v: string) => void; onAdd: () => void; adding: boolean; onDelete: (id: number) => void;
+  }) => (
+    <section className="card p-16 flex-grow-1" style={{ minWidth: 260 }}>
+      <h2 style={{ fontSize: 18 }} className="mb-12">{opts.title} <span className="text-muted" style={{ fontSize: 14 }}>({opts.items.length})</span></h2>
+      <form className="d-flex gap-8 align-items-end mb-8" onSubmit={(e) => { e.preventDefault(); if (opts.value.trim()) opts.onAdd(); }}>
+        <div className="flex-grow-1">
+          <label htmlFor={opts.inputId} className="form-label">{t('presences.new', { defaultValue: 'Nouveau libellé' })}</label>
+          <input id={opts.inputId} className="form-control" value={opts.value} onChange={(e) => opts.setValue(e.target.value)} />
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={opts.adding || !opts.value.trim()}>{t('presences.add', { defaultValue: 'Ajouter' })}</button>
+      </form>
+      {opts.loading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
+      {!opts.loading && opts.items.length === 0 && <p className="text-muted">{opts.emptyText}</p>}
+      {opts.items.length > 0 && (
         <ul className="list-unstyled mb-0">
-          {items.map((i) => <li key={i.id} className="py-4 border-bottom">{i.label}</li>)}
+          {opts.items.map((i) => (
+            <li key={i.id} className="d-flex justify-content-between align-items-center py-4 border-bottom">
+              <span>{i.label}</span>
+              <button type="button" className="btn btn-link p-0 text-danger" onClick={() => { if (window.confirm(t('presences.delete.confirm', { defaultValue: 'Supprimer cet élément ?' }))) opts.onDelete(i.id); }}>
+                {t('presences.delete', { defaultValue: 'Supprimer' })}
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </section>
@@ -119,8 +147,18 @@ export function Dashboard() {
           )}
         </section>
 
-        {list(t('presences.actions', { defaultValue: 'Actions' }), actions.length, actionsQuery.isLoading, actions, 'presences.actions.empty', 'Aucune action.')}
-        {list(t('presences.disciplines', { defaultValue: 'Dispositifs' }), disciplines.length, disciplinesQuery.isLoading, disciplines, 'presences.disciplines.empty', 'Aucun dispositif.')}
+        {crudCard({
+          title: t('presences.actions', { defaultValue: 'Actions' }), items: actions, loading: actionsQuery.isLoading,
+          emptyText: t('presences.actions.empty', { defaultValue: 'Aucune action.' }),
+          inputId: 'action-label', value: actionLabel, setValue: setActionLabel,
+          onAdd: () => createActionMut.mutate(), adding: createActionMut.isPending, onDelete: (id) => deleteActionMut.mutate(id),
+        })}
+        {crudCard({
+          title: t('presences.disciplines', { defaultValue: 'Dispositifs' }), items: disciplines, loading: disciplinesQuery.isLoading,
+          emptyText: t('presences.disciplines.empty', { defaultValue: 'Aucun dispositif.' }),
+          inputId: 'discipline-label', value: disciplineLabel, setValue: setDisciplineLabel,
+          onAdd: () => createDisciplineMut.mutate(), adding: createDisciplineMut.isPending, onDelete: (id) => deleteDisciplineMut.mutate(id),
+        })}
       </div>
 
       {/* Réglages d'alerte */}
