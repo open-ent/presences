@@ -456,6 +456,19 @@ export const createExemption = async (
   if (!res.ok) throw new Error(String(res.status));
 };
 
+/** Une « présence » saisie (élèves signalés présents sur un créneau). */
+export interface PresenceItem {
+  id?: number;
+  startDate?: string;
+  endDate?: string;
+  owner?: { displayName?: string } | string;
+  markers?: Array<{ student?: { displayName?: string } }>;
+}
+
+/** Présences saisies sur une période (GET /presences/presences). */
+export const getPresences = async (structureId: string, startDate: string, endDate: string): Promise<PresenceItem[]> =>
+  json<PresenceItem[]>(await fetch(`/presences/presences?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}`, base)).catch(() => []);
+
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
@@ -466,4 +479,5 @@ export const api = {
   getAlertSummary, getForgottenRegisters, getStatements,
   getEvents, regularizeEvents,
   getExemptions, createExemption, getSubjects,
+  getPresences,
 };
