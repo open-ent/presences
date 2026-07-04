@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { alerteLabel, classeLabel, dateFr, eleveNom, heure, jour, ouiNon, seuil, visibleByLabel } from './utils';
+import { alerteLabel, classeLabel, dateFr, eleveNom, heure, jour, nomComplet, ouiNon, seuil, visibleByLabel } from './utils';
 
 describe('visibleByLabel', () => {
   it('retire les masqués et trie par libellé', () => {
@@ -67,6 +67,15 @@ describe('dateFr', () => {
     expect(dateFr('2025-01-09T10:30:00.000')).toBe('09/01/2025');
     expect(dateFr(undefined)).toBe('');
     expect(dateFr('xxx')).toBe('');
+  });
+});
+
+describe('nomComplet', () => {
+  it('assemble « NOM Prénom » et tolère les absents', () => {
+    expect(nomComplet('BARUWAL001', 'Wyllan')).toBe('BARUWAL001 Wyllan');
+    expect(nomComplet('DUPONT')).toBe('DUPONT');
+    expect(nomComplet(undefined, 'Léa')).toBe('Léa');
+    expect(nomComplet()).toBe('');
   });
 });
 

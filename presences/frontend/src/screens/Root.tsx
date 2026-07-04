@@ -29,6 +29,7 @@ export function Root() {
               {tab('/registre', "Registre d'appel")}
               {tab('/absences', 'Absences')}
               {tab('/regularisation', 'Régularisation')}
+              {tab('/dispenses', 'Dispenses')}
               {tab('/parametrage', 'Paramétrage')}
             </nav>
             <Outlet />
