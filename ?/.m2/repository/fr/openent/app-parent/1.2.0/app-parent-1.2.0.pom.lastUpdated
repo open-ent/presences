@@ -1,0 +1,8 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sat Jul 04 07:31:57 UTC 2026
+https\://maven.opendigitaleducation.com/nexus/content/groups/public/.error=
+https\://plugins.gradle.org/m2/.error=
+https\://repo.maven.apache.org/maven2/.lastUpdated=1783150317263
+https\://maven.opendigitaleducation.com/nexus/content/groups/public/.lastUpdated=1783150316293
+https\://plugins.gradle.org/m2/.lastUpdated=1783150317217
+https\://repo.maven.apache.org/maven2/.error=

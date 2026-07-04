@@ -28,10 +28,13 @@ export function Accueil() {
   const summaryQuery = useQuery({ queryKey: ['pres', 'alert-summary', structureId], queryFn: () => api.getAlertSummary(structureId), enabled: !!structureId });
   const forgottenQuery = useQuery({ queryKey: ['pres', 'forgotten', structureId, start], queryFn: () => api.getForgottenRegisters(structureId, start, end), enabled: !!structureId });
   const statementsQuery = useQuery({ queryKey: ['pres', 'statements', structureId, start], queryFn: () => api.getStatements(structureId, start, end, false), enabled: !!structureId });
+  // Absences du jour (parité Angular : compteur « Nombre d'absents » en tête de tableau de bord).
+  const todayEventsQuery = useQuery({ queryKey: ['pres', 'events-today', structureId, start], queryFn: () => api.getEvents(structureId, start, end), enabled: !!structureId });
 
   const summary = summaryQuery.data ?? {};
   const forgotten = forgottenQuery.data ?? [];
   const statements = statementsQuery.data ?? [];
+  const absentsToday = new Set((todayEventsQuery.data ?? []).map((e) => e.studentId)).size;
 
   if (init && !structureId) {
     return (
@@ -49,7 +52,18 @@ export function Accueil() {
 
   return (
     <div>
-      <h1 className="mb-16">{t('presences.dashboard.title', { defaultValue: 'Tableau de bord' })}</h1>
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-8 mb-16">
+        <h1 className="m-0">{t('presences.dashboard.title', { defaultValue: 'Tableau de bord' })}</h1>
+        {/* Parité Angular : date du jour + nombre d'absents du jour */}
+        <div className="d-flex align-items-center gap-16">
+          <strong style={{ textTransform: 'capitalize' }}>
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </strong>
+          <span className="badge bg-secondary" style={{ fontSize: 13 }}>
+            {t('presences.absents.today', { defaultValue: "Nombre d'absents :" })} {absentsToday}
+          </span>
+        </div>
+      </div>
 
       {/* Synthèse des alertes : une carte KPI par type de seuil franchi */}
       <section className="mb-24">
