@@ -245,6 +245,63 @@ export const createEvent = async (registerId: number, studentId: string, startDa
   if (!res.ok && res.status !== 201) throw new Error(String(res.status));
 };
 
+// ── Tableau de bord d'accueil (alertes / appels oubliés / déclarations parents) ─
+/** Synthèse des alertes de la structure : nombre d'élèves franchissant chaque seuil, par type. */
+export interface AlertSummary {
+  ABSENCE?: number;
+  LATENESS?: number;
+  INCIDENT?: number;
+  FORGOTTEN_NOTEBOOK?: number;
+}
+
+/** Synthèse des alertes (GET /presences/structures/:id/alerts/summary). */
+export const getAlertSummary = async (structureId: string): Promise<AlertSummary> =>
+  json<AlertSummary>(await fetch(`/presences/structures/${structureId}/alerts/summary`, base)).catch(() => ({}));
+
+/** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
+export interface ForgottenRegister {
+  id?: number | string;
+  course_id?: string;
+  subject_name?: string;
+  subject?: { name?: string };
+  classes?: string[];
+  groups?: string[];
+  class_name?: string;
+  start_date?: string;
+  end_date?: string;
+  teachers?: Array<{ displayName?: string }>;
+  teacherIds?: string[];
+}
+
+/** Appels oubliés du jour (GET /presences/structures/:id/registers/forgotten?startDate=&endDate=). */
+export const getForgottenRegisters = async (structureId: string, startDate: string, endDate: string): Promise<ForgottenRegister[]> => {
+  const url = `/presences/structures/${structureId}/registers/forgotten?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+  return json<ForgottenRegister[]>(await fetch(url, base)).then((d) => d ?? []).catch(() => []);
+};
+
+/** Une déclaration d'absence saisie par un parent, à valider par la vie scolaire. */
+export interface Statement {
+  id?: number;
+  student_id?: string;
+  student?: { displayName?: string; name?: string };
+  display_name?: string;
+  start_at?: string;
+  end_at?: string;
+  description?: string;
+  treated_at?: string | null;
+  is_treated?: boolean;
+  validator_id?: string | null;
+}
+
+/** Déclarations d'absence des parents (GET /presences/statements/absences). */
+export const getStatements = async (structureId: string, startAt: string, endAt: string, isTreated?: boolean): Promise<Statement[]> => {
+  let url = `/presences/statements/absences?structure_id=${structureId}&start_at=${encodeURIComponent(startAt)}&end_at=${encodeURIComponent(endAt)}`;
+  if (typeof isTreated === 'boolean') url += `&is_treated=${isTreated}`;
+  return json<{ all?: Statement[] } | Statement[]>(await fetch(url, base))
+    .then((d) => (Array.isArray(d) ? d : d?.all ?? []))
+    .catch(() => []);
+};
+
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
@@ -252,4 +309,5 @@ export const api = {
   createDiscipline, deleteDiscipline,
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent,
+  getAlertSummary, getForgottenRegisters, getStatements,
 };
