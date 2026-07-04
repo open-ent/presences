@@ -30,11 +30,16 @@ export function Accueil() {
   const statementsQuery = useQuery({ queryKey: ['pres', 'statements', structureId, start], queryFn: () => api.getStatements(structureId, start, end, false), enabled: !!structureId });
   // Absences du jour (parité Angular : compteur « Nombre d'absents » en tête de tableau de bord).
   const todayEventsQuery = useQuery({ queryKey: ['pres', 'events-today', structureId, start], queryFn: () => api.getEvents(structureId, start, end), enabled: !!structureId });
+  // Appels du jour (cours de la journée) + présences saisies du jour.
+  const coursesQuery = useQuery({ queryKey: ['pres', 'courses-today', structureId, start], queryFn: () => api.getCourses(structureId, start), enabled: !!structureId });
+  const presencesQuery = useQuery({ queryKey: ['pres', 'presences-today', structureId, start], queryFn: () => api.getPresences(structureId, start, end), enabled: !!structureId });
 
   const summary = summaryQuery.data ?? {};
   const forgotten = forgottenQuery.data ?? [];
   const statements = statementsQuery.data ?? [];
   const absentsToday = new Set((todayEventsQuery.data ?? []).map((e) => e.studentId)).size;
+  const courses = coursesQuery.data ?? [];
+  const presences = presencesQuery.data ?? [];
 
   if (init && !structureId) {
     return (
@@ -129,6 +134,55 @@ export function Accueil() {
                   {s.is_treated || s.treated_at
                     ? <span className="badge bg-success">{t('presences.statement.treated', { defaultValue: 'Traitée' })}</span>
                     : <span className="badge bg-warning">{t('presences.statement.pending', { defaultValue: 'À traiter' })}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Appels du jour : cours de la journée avec l'état de l'appel (parité Angular) */}
+        <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
+          <h2 style={{ fontSize: 18 }} className="mb-12">
+            {t('presences.today.calls', { defaultValue: 'Appels du jour' })}{' '}
+            <span className="text-muted" style={{ fontSize: 14 }}>({courses.length})</span>
+          </h2>
+          {coursesQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
+          {!coursesQuery.isLoading && courses.length === 0 && (
+            <p className="text-muted">{t('presences.today.calls.empty', { defaultValue: 'Aucun cours aujourd’hui.' })}</p>
+          )}
+          {courses.length > 0 && (
+            <ul className="list-unstyled mb-0">
+              {courses.map((c) => (
+                <li key={c.id} className="d-flex justify-content-between align-items-center py-4 border-bottom gap-8">
+                  <span>
+                    <strong>{(c.classes ?? c.groups ?? []).join(', ')}</strong> — {c.subjectName ?? ''}
+                    <span className="text-muted"> {heure(c.startDate)}</span>
+                  </span>
+                  {c.register_id
+                    ? <span className="badge bg-success">{t('presences.call.done', { defaultValue: 'Appel fait' })}</span>
+                    : <Link to="/registre" className="btn btn-sm btn-primary">{t('presences.do.call', { defaultValue: "Faire l'appel" })}</Link>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Présences du jour : présences saisies (parité Angular) */}
+        <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
+          <h2 style={{ fontSize: 18 }} className="mb-12">
+            {t('presences.today.presences', { defaultValue: 'Présences du jour' })}{' '}
+            <span className="text-muted" style={{ fontSize: 14 }}>({presences.length})</span>
+          </h2>
+          {presencesQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
+          {!presencesQuery.isLoading && presences.length === 0 && (
+            <p className="text-muted">{t('presences.today.presences.empty', { defaultValue: 'Aucune présence saisie ce jour.' })}</p>
+          )}
+          {presences.length > 0 && (
+            <ul className="list-unstyled mb-0">
+              {presences.map((p, i) => (
+                <li key={p.id ?? i} className="py-4 border-bottom">
+                  <strong>{(p.markers ?? []).map((m) => m.student?.displayName ?? '').filter(Boolean).join(', ') || '—'}</strong>
+                  <span className="text-muted"> {heure(p.startDate)}</span>
                 </li>
               ))}
             </ul>
