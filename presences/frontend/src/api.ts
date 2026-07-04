@@ -36,6 +36,22 @@ export interface Settings {
   allow_multiple_slots?: boolean;
 }
 
+/** Élève (annuaire). */
+export interface Eleve {
+  id: string;
+  displayName: string;
+}
+
+/** Une absence saisie. */
+export interface Absence {
+  id: number;
+  start_date?: string;
+  end_date?: string;
+  reason_id?: number | null;
+  student_id?: string;
+  counsellor_regularisation?: boolean;
+}
+
 /** Corps de POST /presences/reason (cf. jsonschema/reasonCreate.json, tous requis). */
 export interface ReasonInput {
   structureId: string;
@@ -119,9 +135,37 @@ export const deleteDiscipline = async (id: number): Promise<void> => {
   if (!res.ok && res.status !== 204) throw new Error(String(res.status));
 };
 
+// ── Saisie d'absences (nécessite droit ADML / vie sco) ──────────────────────────
+/** Élèves de la structure (annuaire), triés par nom. */
+export const getStudents = async (structureId: string): Promise<Eleve[]> =>
+  json<Array<{ id: string; type?: string; displayName?: string }>>(
+    await fetch(`/directory/structure/${structureId}/users`, base),
+  ).then((arr) =>
+    arr.filter((u) => u.type === 'Student').map((u) => ({ id: u.id, displayName: u.displayName ?? u.id }))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr', { sensitivity: 'base' })),
+  );
+
+/** Absences d'un élève sur une période. */
+export const getStudentAbsences = async (structureId: string, studentId: string, start: string, end: string): Promise<Absence[]> => {
+  const url = `/presences/absences?structureId=${structureId}&startDate=${start}&endDate=${end}&studentId=${studentId}`;
+  return json<{ all?: Absence[] } | Absence[]>(await fetch(url, base)).then((d) => (Array.isArray(d) ? d : d.all ?? [])).catch(() => []);
+};
+
+/** Crée une absence (POST /presences/absence). Dates « YYYY-MM-DD HH:mm:ss ». */
+export const createAbsence = async (structureId: string, studentId: string, startDate: string, endDate: string, reasonId: number | null): Promise<void> => {
+  const res = await fetch(`/presences/absence`, {
+    ...base,
+    method: 'POST',
+    headers: mutHeaders(),
+    body: JSON.stringify({ structure_id: structureId, student_id: studentId, start_date: startDate, end_date: endDate, reason_id: reasonId, counsellor_regularisation: false }),
+  });
+  if (!res.ok && res.status !== 201) throw new Error(String(res.status));
+};
+
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
   createAction, deleteAction,
   createDiscipline, deleteDiscipline,
+  getStudents, getStudentAbsences, createAbsence,
 };
