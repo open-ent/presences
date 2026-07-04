@@ -1,6 +1,8 @@
 // Client REST du module Présences (presences) — session ENT, même origine.
 // Incrément 1 : lecture seule du paramétrage de la structure (motifs, actions, dispositifs, réglages).
 
+import { nomComplet } from './utils';
+
 /** Motif d'absence de la structure. */
 export interface Reason {
   id: number;
@@ -375,6 +377,85 @@ export const regularizeEvents = async (ids: number[], regularized: boolean): Pro
   if (!res.ok) throw new Error(String(res.status));
 };
 
+// ── Dispenses (exemptions) ──────────────────────────────────────────────────────
+/** Une dispense d'élève sur une matière (aplatie depuis values[]). */
+export interface Exemption {
+  id: number;
+  studentName: string;
+  className: string;
+  subjectName: string;
+  startDate: string;
+  endDate: string;
+  attendance: boolean;
+  comment: string;
+  type: string;
+}
+
+/** Structure renvoyée par GET /presences/exemptions. */
+interface ExemptionsResponse {
+  values?: Array<{
+    exemption_id: number;
+    start_date?: string;
+    end_date?: string;
+    attendance?: boolean;
+    comment?: string;
+    type?: string;
+    subject?: { name?: string };
+    student?: { firstName?: string; lastName?: string; className?: string; classeName?: string };
+  }>;
+}
+
+/** Dispenses de la structure, aplaties (nom élève / classe / matière résolus). */
+export const getExemptions = async (structureId: string, startDate: string, endDate: string): Promise<Exemption[]> => {
+  const url = `/presences/exemptions?structure_id=${structureId}&start_date=${startDate}&end_date=${endDate}&page=0`;
+  const data = await json<ExemptionsResponse>(await fetch(url, base)).catch(() => ({ values: [] as ExemptionsResponse['values'] }));
+  return (data.values ?? []).map((v) => {
+    const st = v.student;
+    return {
+      id: v.exemption_id,
+      studentName: nomComplet(st?.lastName, st?.firstName),
+      className: st?.className ?? st?.classeName ?? '',
+      subjectName: v.subject?.name ?? '',
+      startDate: v.start_date ?? '',
+      endDate: v.end_date ?? '',
+      attendance: Boolean(v.attendance),
+      comment: v.comment ?? '',
+      type: v.type ?? '',
+    };
+  });
+};
+
+/** Une matière (pour le sélecteur de dispense). */
+export interface Subject {
+  id: string;
+  name: string;
+}
+
+/** Matières de la structure (via viescolaire). */
+export const getSubjects = async (structureId: string): Promise<Subject[]> =>
+  json<Array<{ id: string; name: string }>>(await fetch(`/viescolaire/matieres?idEtablissement=${structureId}`, base))
+    .then((arr) => arr.map((m) => ({ id: m.id, name: m.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })))
+    .catch(() => []);
+
+/** Crée une dispense ponctuelle (POST /presences/exemptions). */
+export const createExemption = async (
+  structureId: string,
+  studentId: string,
+  subjectId: string,
+  startDate: string,
+  endDate: string,
+  attendance: boolean,
+  comment: string,
+): Promise<void> => {
+  const res = await fetch(`/presences/exemptions`, {
+    ...base,
+    method: 'POST',
+    headers: mutHeaders(),
+    body: JSON.stringify({ structure_id: structureId, subject_id: subjectId, student_id: [studentId], start_date: startDate, end_date: endDate, attendance, comment }),
+  });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
@@ -384,4 +465,5 @@ export const api = {
   getCourses, getClasses, getClassStudents, createRegister, createEvent,
   getAlertSummary, getForgottenRegisters, getStatements,
   getEvents, regularizeEvents,
+  getExemptions, createExemption, getSubjects,
 };

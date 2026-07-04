@@ -66,3 +66,8 @@ export function classeLabel(r: { classes?: string[]; groups?: string[]; class_na
 export function eleveNom(s: { display_name?: string; student?: { displayName?: string; name?: string }; student_id?: string }): string {
   return s.display_name || s.student?.displayName || s.student?.name || s.student_id || '—';
 }
+
+/** « NOM Prénom » à partir des champs séparés (dispenses) ; tolère les valeurs absentes. */
+export function nomComplet(lastName?: string, firstName?: string): string {
+  return `${lastName ?? ''} ${firstName ?? ''}`.trim();
+}
