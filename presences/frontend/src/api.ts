@@ -302,6 +302,79 @@ export const getStatements = async (structureId: string, startAt: string, endAt:
     .catch(() => []);
 };
 
+// ── Régularisation des absences (événements) ────────────────────────────────────
+/** Un événement d'absence aplati (issu de all[].student.day_history[].events[]). */
+export interface EventItem {
+  id: number;
+  studentId: string;
+  studentName: string;
+  classeName: string;
+  date: string;
+  start_date?: string;
+  end_date?: string;
+  reason?: string | null;
+  reason_id?: number | null;
+  counsellor_regularisation?: boolean;
+}
+
+/** Structure imbriquée renvoyée par GET /presences/events. */
+interface EventsResponse {
+  all?: Array<{
+    date?: string;
+    student?: {
+      id?: string;
+      displayName?: string;
+      classeName?: string;
+      day_history?: Array<{ events?: Array<Record<string, unknown>> }>;
+    };
+  }>;
+}
+
+/**
+ * Événements d'absence d'une structure, **aplatis** (un item par événement).
+ * `regularized` filtre régularisés/non régularisés (undefined = tous).
+ */
+export const getEvents = async (structureId: string, startDate: string, endDate: string, regularized?: boolean): Promise<EventItem[]> => {
+  let url = `/presences/events?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&eventType=1&page=0`;
+  if (typeof regularized === 'boolean') url += `&regularized=${regularized}`;
+  const data = await json<EventsResponse>(await fetch(url, base)).catch(() => ({ all: [] as EventsResponse['all'] }));
+  const items: EventItem[] = [];
+  for (const row of data.all ?? []) {
+    const s = row.student;
+    if (!s) continue;
+    for (const day of s.day_history ?? []) {
+      for (const ev of day.events ?? []) {
+        const e = ev as Record<string, unknown>;
+        if (e.type_id !== 1) continue; // absences uniquement
+        items.push({
+          id: Number(e.id),
+          studentId: s.id ?? '',
+          studentName: s.displayName ?? s.id ?? '',
+          classeName: s.classeName ?? '',
+          date: row.date ?? '',
+          start_date: e.start_date as string | undefined,
+          end_date: e.end_date as string | undefined,
+          reason: (e.reason as string | null) ?? null,
+          reason_id: (e.reason_id as number | null) ?? null,
+          counsellor_regularisation: Boolean(e.counsellor_regularisation),
+        });
+      }
+    }
+  }
+  return items;
+};
+
+/** Régularise (ou dé-régularise) des événements d'absence (PUT /presences/events/regularized). */
+export const regularizeEvents = async (ids: number[], regularized: boolean): Promise<void> => {
+  const res = await fetch(`/presences/events/regularized`, {
+    ...base,
+    method: 'PUT',
+    headers: mutHeaders(),
+    body: JSON.stringify({ events: ids.map((id) => ({ id })), regularized }),
+  });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
@@ -310,4 +383,5 @@ export const api = {
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent,
   getAlertSummary, getForgottenRegisters, getStatements,
+  getEvents, regularizeEvents,
 };

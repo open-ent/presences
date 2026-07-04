@@ -28,6 +28,7 @@ export function Root() {
               {tab('/', 'Tableau de bord', true)}
               {tab('/registre', "Registre d'appel")}
               {tab('/absences', 'Absences')}
+              {tab('/regularisation', 'Régularisation')}
               {tab('/parametrage', 'Paramétrage')}
             </nav>
             <Outlet />
