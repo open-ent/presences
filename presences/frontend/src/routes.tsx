@@ -1,6 +1,7 @@
 import { RouteObject, createHashRouter } from 'react-router-dom';
 
 import { Absences } from './screens/Absences';
+import { Accueil } from './screens/Accueil';
 import { Dashboard } from './screens/Dashboard';
 import { Registre } from './screens/Registre';
 import { Root } from './screens/Root';
@@ -10,9 +11,10 @@ export const routes: RouteObject[] = [
     path: '/',
     element: <Root />,
     children: [
-      { index: true, element: <Dashboard /> },
+      { index: true, element: <Accueil /> },
       { path: 'registre', element: <Registre /> },
       { path: 'absences', element: <Absences /> },
+      { path: 'parametrage', element: <Dashboard /> },
     ],
   },
 ];

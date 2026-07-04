@@ -25,9 +25,10 @@ export function Root() {
         <div className="flex-grow-1 overflow-auto">
           <div className="container py-16">
             <nav className="btn-group mb-16" aria-label="Navigation présences">
-              {tab('/', 'Paramétrage', true)}
+              {tab('/', 'Tableau de bord', true)}
               {tab('/registre', "Registre d'appel")}
               {tab('/absences', 'Absences')}
+              {tab('/parametrage', 'Paramétrage')}
             </nav>
             <Outlet />
           </div>
