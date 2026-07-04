@@ -162,10 +162,94 @@ export const createAbsence = async (structureId: string, studentId: string, star
   if (!res.ok && res.status !== 201) throw new Error(String(res.status));
 };
 
+// ── Registre d'appel (cours du jour → appel → présence/absence) ─────────────────
+/** Un cours du jour (source EDT). */
+export interface Course {
+  id: string;
+  subjectId?: string;
+  subjectName?: string;
+  classes?: string[];
+  groups?: string[];
+  roomLabels?: string[];
+  startDate?: string;
+  endDate?: string;
+  register_id?: number | null;
+}
+
+/** Cours d'une structure sur une journée (pour l'appel). */
+export const getCourses = async (structureId: string, date: string): Promise<Course[]> => {
+  const url = `/presences/courses?structure=${structureId}&start=${date}&end=${date}`;
+  return json<Course[]>(await fetch(url, base)).catch(() => []);
+};
+
+/** Classe de la structure (pour résoudre un nom de classe → identifiant). */
+export interface Classe {
+  id: string;
+  name: string;
+}
+
+/** Classes de la structure (via le référentiel vie scolaire). */
+export const getClasses = async (structureId: string): Promise<Classe[]> =>
+  json<Array<{ id: string; name: string }>>(
+    await fetch(`/viescolaire/classes?idEtablissement=${structureId}`, base),
+  ).then((arr) => (arr ?? []).map((c) => ({ id: c.id, name: c.name }))).catch(() => []);
+
+/** Élèves d'une classe (annuaire directory), triés par nom. */
+export const getClassStudents = async (classId: string): Promise<Eleve[]> =>
+  json<Array<{ id: string; firstName?: string; lastName?: string; displayName?: string }>>(
+    await fetch(`/directory/class/${classId}/users?type=Student`, base),
+  ).then((arr) =>
+    (arr ?? [])
+      .map((u) => ({ id: u.id, displayName: u.displayName ?? (`${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() || u.id) }))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr', { sensitivity: 'base' })),
+  );
+
+/** Ouvre (crée) le registre d'un cours. Renvoie l'id du registre. */
+export const createRegister = async (course: Course, structureId: string): Promise<{ id: number }> =>
+  json<{ id: number }>(
+    await fetch(`/presences/registers`, {
+      ...base,
+      method: 'POST',
+      headers: mutHeaders(),
+      body: JSON.stringify({
+        course_id: course.id,
+        structure_id: structureId,
+        start_date: course.startDate,
+        end_date: course.endDate,
+        subject_id: course.subjectId ?? '',
+        groups: course.groups ?? [],
+        classes: course.classes ?? [],
+        teacherIds: [],
+        split_slot: false,
+      }),
+    }),
+  );
+
+/** Enregistre un événement d'appel (type_id : 1 = absence). */
+export const createEvent = async (registerId: number, studentId: string, startDate: string, endDate: string, typeId = 1): Promise<void> => {
+  const res = await fetch(`/presences/events`, {
+    ...base,
+    method: 'POST',
+    headers: mutHeaders(),
+    body: JSON.stringify({
+      register_id: registerId,
+      type_id: typeId,
+      student_id: studentId,
+      start_date: startDate,
+      end_date: endDate,
+      counsellor_input: true,
+      counsellor_regularisation: false,
+      reason_id: null,
+    }),
+  });
+  if (!res.ok && res.status !== 201) throw new Error(String(res.status));
+};
+
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
   createAction, deleteAction,
   createDiscipline, deleteDiscipline,
   getStudents, getStudentAbsences, createAbsence,
+  getCourses, getClasses, getClassStudents, createRegister, createEvent,
 };

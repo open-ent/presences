@@ -26,6 +26,7 @@ export function Root() {
           <div className="container py-16">
             <nav className="btn-group mb-16" aria-label="Navigation présences">
               {tab('/', 'Paramétrage', true)}
+              {tab('/registre', "Registre d'appel")}
               {tab('/absences', 'Absences')}
             </nav>
             <Outlet />

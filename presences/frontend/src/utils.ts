@@ -16,3 +16,13 @@ export function ouiNon(v?: boolean): string {
 export function seuil(v?: number): string {
   return typeof v === 'number' && v > 0 ? String(v) : '—';
 }
+
+/**
+ * Extrait l'heure « HH:mm » d'une date de cours (« 2025-10-14 08:00:00 » ou ISO « …T08:00:00 »).
+ * Renvoie '' si illisible.
+ */
+export function heure(dateStr?: string): string {
+  if (!dateStr) return '';
+  const m = /[ T](\d{2}):(\d{2})/.exec(dateStr);
+  return m ? `${m[1]}:${m[2]}` : '';
+}
