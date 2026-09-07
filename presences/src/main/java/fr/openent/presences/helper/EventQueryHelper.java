@@ -225,9 +225,10 @@ public class EventQueryHelper {
 
 
         if (!latenessFilter.isEmpty()) {
-            latenessFilter = "(" + latenessFilter + ") AND type_id = " + EventTypeEnum.LATENESS.getType();
+            return "((" + latenessFilter + ") AND type_id = " + EventTypeEnum.LATENESS.getType() + ")";
         }
-        return latenessFilter.isEmpty() ? "" : "(" + latenessFilter + ")";
+        // Pas de critère de motif : ne pas exclure les retards, juste filtrer sur le type
+        return "(type_id = " + EventTypeEnum.LATENESS.getType() + ")";
     }
 
     private static String filterAbsenceReasons(List<String> listReasonIds,Boolean regularized,
@@ -261,9 +262,10 @@ public class EventQueryHelper {
         }
 
         if (!absenceFilter.isEmpty()) {
-            absenceFilter = "(" + absenceFilter + ") AND type_id = " + EventTypeEnum.ABSENCE.getType();
+            return "((" + absenceFilter + ") AND type_id = " + EventTypeEnum.ABSENCE.getType() + ")";
         }
-        return absenceFilter.isEmpty() ? "" : "(" + absenceFilter + ")";
+        // Pas de critère de motif : ne pas exclure les absences, juste filtrer sur le type
+        return "(type_id = " + EventTypeEnum.ABSENCE.getType() + ")";
     }
 
     /**
