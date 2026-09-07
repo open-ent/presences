@@ -156,7 +156,8 @@ public class EventHelperTest {
         params = new JsonArray();
         listReasonIds = Arrays.asList();
 
-        expectedQuery = "";
+        // Aucun critère de motif : ne doit pas exclure les retards, juste filtrer sur le type
+        expectedQuery = "(type_id = 2)";
         expectedParams = new JsonArray(Arrays.asList());
         res = Whitebox.invokeMethod(EventQueryHelper.class, "filterLatenessReasons", listReasonIds, noReasonLateness, params);
         ctx.assertEquals(expectedQuery, res);
@@ -272,7 +273,8 @@ public class EventHelperTest {
 
         followed = null;
 
-        expectedQuery = "";
+        // Aucun critère de motif : ne doit pas exclure les absences, juste filtrer sur le type
+        expectedQuery = "(type_id = 1)";
         expectedParams = new JsonArray(Arrays.asList());
 
         res = Whitebox.invokeMethod(EventQueryHelper.class, "filterAbsenceReasons", listReasonIds, regularized, followed, noReason, params);
