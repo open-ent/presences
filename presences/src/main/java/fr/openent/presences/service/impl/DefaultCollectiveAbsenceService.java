@@ -561,29 +561,44 @@ public class DefaultCollectiveAbsenceService extends DBService implements Collec
             collective.setCounsellorRegularisation(regularizedResult.result().getBoolean("regularized"));
 
             Promise<JsonObject> updateCollectivePromise = Promise.promise();
-            Promise<JsonObject> updateAbsencesPromise = Promise.promise();
 
             update(collective, structureId, collectiveId, updateCollectivePromise);
 
-            List<String> studentIds = (List<String>) collectiveBody.getJsonArray("audiences")
-                    .stream()
-                    .flatMap(audience -> ((JsonObject) audience).getJsonArray("studentIds").getList().stream())
-                    .collect(Collectors.toList());
-
-            JsonObject absenceBody = collective.toJSON()
-                    .put("structure_id", structureId)
-                    .put("student_id", studentIds);
-            absenceService.updateFromCollective(absenceBody, user, collectiveId, true, updateAbsencesPromise);
-
-
-            Future.all(Arrays.asList(updateCollectivePromise.future(), updateAbsencesPromise.future())).onComplete(updateResult -> {
-                if (updateResult.failed()) {
-                    handler.handle(Future.failedFuture(updateResult.cause().getMessage()));
+            updateCollectivePromise.future().onComplete(updateCollectiveResult -> {
+                if (updateCollectiveResult.failed()) {
+                    handler.handle(Future.failedFuture(updateCollectiveResult.cause().getMessage()));
                     return;
                 }
 
-                JsonArray audiences = collectiveBody.getJsonArray("audiences", new JsonArray());
-                createRelatives(audiences, collective, user, structureId, collectiveId, handler);
+                JsonObject updatedCollective = updateCollectiveResult.result();
+                if (updatedCollective == null || !updatedCollective.containsKey("id")) {
+                    String message = "[Presences@DefaultCollectiveAbsenceService::update] Collective absence not found for structure " + structureId;
+                    log.error(message);
+                    handler.handle(Future.failedFuture("collective.absence.not.found"));
+                    return;
+                }
+
+                List<String> studentIds = (List<String>) collectiveBody.getJsonArray("audiences")
+                        .stream()
+                        .flatMap(audience -> ((JsonObject) audience).getJsonArray("studentIds").getList().stream())
+                        .collect(Collectors.toList());
+
+                JsonObject absenceBody = collective.toJSON()
+                        .put("structure_id", structureId)
+                        .put("student_id", studentIds);
+
+                Promise<JsonObject> updateAbsencesPromise = Promise.promise();
+                absenceService.updateFromCollective(absenceBody, user, collectiveId, true, updateAbsencesPromise);
+
+                updateAbsencesPromise.future().onComplete(updateAbsencesResult -> {
+                    if (updateAbsencesResult.failed()) {
+                        handler.handle(Future.failedFuture(updateAbsencesResult.cause().getMessage()));
+                        return;
+                    }
+
+                    JsonArray audiences = collectiveBody.getJsonArray("audiences", new JsonArray());
+                    createRelatives(audiences, collective, user, structureId, collectiveId, handler);
+                });
             });
         });
     }
@@ -591,7 +606,7 @@ public class DefaultCollectiveAbsenceService extends DBService implements Collec
     private void update(CollectiveAbsence collective, String structureId, Long collectiveId, Handler<AsyncResult<JsonObject>> handler) {
         String query = "UPDATE " + Presences.dbSchema + ".collective_absence " +
                 " SET start_date = ?, end_date = ?, comment = ?, reason_id = ?,  counsellor_regularisation = ? " +
-                " WHERE id = ? AND structure_id = ?";
+                " WHERE id = ? AND structure_id = ? RETURNING id";
 
         JsonArray params = new JsonArray()
                 .add(collective.getStartDate())
@@ -818,8 +833,16 @@ public class DefaultCollectiveAbsenceService extends DBService implements Collec
                 return;
             }
 
+            JsonObject collectiveResult = collectivePromise.future().result();
+            if (collectiveResult == null || !collectiveResult.containsKey("id")) {
+                String message = "[Presences@DefaultCollectiveAbsenceService::delete] Collective absence not found for structure " + structureId;
+                log.error(message);
+                handler.handle(Future.failedFuture("collective.absence.not.found"));
+                return;
+            }
+
             List<Absence> absences = AbsenceHelper.getAbsenceListFromJsonArray(absencesPromise.future().result().getJsonArray("all", new JsonArray()), Collections.emptyList());
-            CollectiveAbsence collective = new CollectiveAbsence(collectivePromise.future().result());
+            CollectiveAbsence collective = new CollectiveAbsence(collectiveResult);
 
             deleteAbsences(absences, collective, deleteRes -> {
                 if (deleteRes.failed()) {
@@ -828,7 +851,7 @@ public class DefaultCollectiveAbsenceService extends DBService implements Collec
                     handler.handle(Future.failedFuture(deleteRes.cause().getMessage()));
 
                 } else {
-                    deleteCollectiveAbsence(id, deleteCollRes -> {
+                    deleteCollectiveAbsence(id, structureId, deleteCollRes -> {
                         if (deleteCollRes.isLeft()) {
                             String message = "[Presences@DefaultCollectiveAbsenceService::delete] Failed to delete collective absence.";
                             log.error(message, deleteCollRes.left().getValue());
@@ -922,11 +945,11 @@ public class DefaultCollectiveAbsenceService extends DBService implements Collec
                 .put("values", params);
     }
 
-    private void deleteCollectiveAbsence(Long id, Handler<Either<String, JsonObject>> handler) {
-        String query = "DELETE FROM " + Presences.dbSchema + ".collective_absence WHERE id = ?";
+    private void deleteCollectiveAbsence(Long id, String structureId, Handler<Either<String, JsonObject>> handler) {
+        String query = "DELETE FROM " + Presences.dbSchema + ".collective_absence WHERE id = ? AND structure_id = ?";
 
         JsonArray params = new JsonArray();
-        params.add(id);
+        params.add(id).add(structureId);
 
         sql.prepared(query, params, SqlResult.validUniqueResultHandler(handler));
     }
