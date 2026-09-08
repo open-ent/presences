@@ -81,7 +81,7 @@ public class DefaultIncidentsService extends SqlCrudService implements Incidents
                 "WHERE p.user_id = ? " +
                 "AND i.structure_id = ? " +
                 "AND i.date >= to_date(?, 'YYYY-MM-DD') " +
-                "AND i.date <= to_date(?, 'YYYY-MM-DD')" +
+                "AND i.date < (to_date(?, 'YYYY-MM-DD') + interval '1 day')" +
                 "ORDER BY i.date DESC ";
 
         JsonArray params = new JsonArray()
@@ -298,7 +298,10 @@ public class DefaultIncidentsService extends SqlCrudService implements Incidents
         params.add(structureId);
 
         if (startDate != null && endDate != null) {
-            query += " AND i.date BETWEEN ? AND ? ";
+            // endDate est une date sans heure (ex. "2026-09-08") ; un BETWEEN direct la traite comme
+            // minuit et exclut donc tout incident survenu le jour même après 00:00. On borne sur le
+            // lendemain (exclusif) pour couvrir la journée entière de endDate.
+            query += " AND i.date >= ?::date AND i.date < (?::date + interval '1 day') ";
             params.add(startDate);
             params.add(endDate);
         }
