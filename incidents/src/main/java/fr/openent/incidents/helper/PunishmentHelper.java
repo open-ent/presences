@@ -101,23 +101,31 @@ public class PunishmentHelper {
             }
 
             if (startAt != null && endAt != null) {
+                // startAt/endAt arrivent souvent en date seule ("YYYY-MM-DD", ex. GET /punishments
+                // avec start_at/end_at). Comparées telles quelles (comparaison de chaînes Mongo) à
+                // created_at/fields.*_at qui portent une heure, endAt="2026-09-08" est lexicalement
+                // INFÉRIEUR à "2026-09-08 17:16:55" (préfixe plus court = plus petit) : le $lte
+                // exclut alors toute sanction créée après minuit le jour même. On borne donc sur la
+                // journée complète (00:00:00 → 23:59:59) quand aucune heure n'est déjà fournie.
+                String startAtBound = startAt.length() <= 10 ? startAt + " 00:00:00" : startAt;
+                String endAtBound = endAt.length() <= 10 ? endAt + " 23:59:59" : endAt;
 
                 //Check date for detentions and exclusions
                 JsonArray containDateQueries = new JsonArray(Arrays.asList(
-                        new JsonObject().put("fields.start_at", new JsonObject().put("$lte", endAt)),
-                        new JsonObject().put("fields.end_at", new JsonObject().put("$gte", startAt))
+                        new JsonObject().put("fields.start_at", new JsonObject().put("$lte", endAtBound)),
+                        new JsonObject().put("fields.end_at", new JsonObject().put("$gte", startAtBound))
                 ));
                 JsonObject containDateQuery = new JsonObject().put("$and", containDateQueries);
 
                 //Check date for duties
                 JsonArray containDateDutyQueries = new JsonArray(Arrays.asList(
-                        new JsonObject().put("fields.delay_at", new JsonObject().put("$lte", endAt)),
-                        new JsonObject().put("fields.delay_at", new JsonObject().put("$gte", startAt))
+                        new JsonObject().put("fields.delay_at", new JsonObject().put("$lte", endAtBound)),
+                        new JsonObject().put("fields.delay_at", new JsonObject().put("$gte", startAtBound))
                 ));
                 JsonObject containDutyDateQuery = new JsonObject().put("$and", containDateDutyQueries);
 
                 //Check creation date
-                JsonObject nullDateQuery = new JsonObject().put("created_at", new JsonObject().put("$gte", startAt).put("$lte", endAt));
+                JsonObject nullDateQuery = new JsonObject().put("created_at", new JsonObject().put("$gte", startAtBound).put("$lte", endAtBound));
 
                 query.put("$or", new JsonArray(Arrays.asList(containDateQuery, nullDateQuery, containDutyDateQuery)));
             }
@@ -164,15 +172,21 @@ public class PunishmentHelper {
      * @param endAt   end date string
      */
     public JsonArray getPunishmentMatchingDate(String startAt, String endAt) {
+        // Même piège que getManyPunishmentsQuery : une date seule ("YYYY-MM-DD") comparée en
+        // chaîne à un created_at/fields.*_at horodaté exclut tout ce qui est après minuit le
+        // jour même côté endAt. Bornes complètes de journée si aucune heure n'est fournie.
+        String startAtBound = startAt != null && startAt.length() <= 10 ? startAt + " 00:00:00" : startAt;
+        String endAtBound = endAt != null && endAt.length() <= 10 ? endAt + " 23:59:59" : endAt;
+
         JsonObject dateChecks = new JsonObject();
         JsonArray startAndEndDateChecks = new JsonArray();
-        if (startAt != null) {
-            dateChecks.put("$gte", startAt);
-            startAndEndDateChecks.add(new JsonObject().put("fields.end_at", new JsonObject().put("$gte", startAt)));
+        if (startAtBound != null) {
+            dateChecks.put("$gte", startAtBound);
+            startAndEndDateChecks.add(new JsonObject().put("fields.end_at", new JsonObject().put("$gte", startAtBound)));
         }
-        if (endAt != null) {
-            dateChecks.put("$lte", endAt);
-            startAndEndDateChecks.add(new JsonObject().put("fields.start_at", new JsonObject().put("$lte", endAt)));
+        if (endAtBound != null) {
+            dateChecks.put("$lte", endAtBound);
+            startAndEndDateChecks.add(new JsonObject().put("fields.start_at", new JsonObject().put("$lte", endAtBound)));
         }
 
         // Check date for detentions and exclusions
