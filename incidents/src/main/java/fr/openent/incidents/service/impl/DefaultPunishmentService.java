@@ -52,6 +52,16 @@ public class DefaultPunishmentService implements PunishmentService {
 
     @Override
     public void create(UserInfos user, JsonObject body, Handler<AsyncResult<JsonArray>> handler) {
+        // Garde-fou : sans ceci, un appelant qui envoie "student_id" (singulier, comme le modèle
+        // Punishment le laisserait croire) au lieu de "student_ids" (tableau, attendu ici) déclenche
+        // une NullPointerException non catchée dans createPunishments(), au milieu d'une chaîne de
+        // callbacks SQL Vert.x — l'exception est journalée par Vert.x mais jamais relayée à `handler`,
+        // et la requête HTTP appelante reste bloquée indéfiniment sans réponse ni erreur visible.
+        if (body.getJsonArray(Field.STUDENT_IDS) == null || body.getJsonArray(Field.STUDENT_IDS).isEmpty()) {
+            handler.handle(Future.failedFuture(
+                    "[Incidents@DefaultPunishmentService::create] Missing or empty 'student_ids' array in body."));
+            return;
+        }
         String structureId = body.getString(Field.STRUCTURE_ID, "");
         Long typeId = body.getLong(Field.TYPEID);
         PunishmentCategory.getSpecifiedCategoryFromType(structureId, typeId)
