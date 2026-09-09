@@ -11,8 +11,12 @@ import org.entcore.common.user.UserInfos;
 public class PunishmentsViewRight implements ResourcesProvider {
     @Override
     public void authorize(HttpServerRequest httpServerRequest, Binding binding, UserInfos user, Handler<Boolean> handler) {
+        // Le super-admin plateforme n'a pas forcément les rôles/actions calculés par structure
+        // (WorkflowHelper.hasRight) sur un établissement auquel il n'est pas rattaché ; sans ce
+        // contournement, le dashboard Pilotage lui est inaccessible.
         handler.handle(
-                WorkflowHelper.hasRight(user, WorkflowActions.PUNISHMENTS_VIEW.toString()) ||
+                user.isADMC() ||
+                        WorkflowHelper.hasRight(user, WorkflowActions.PUNISHMENTS_VIEW.toString()) ||
                         WorkflowHelper.hasRight(user, WorkflowActions.SANCTIONS_VIEW.toString())
         );
     }

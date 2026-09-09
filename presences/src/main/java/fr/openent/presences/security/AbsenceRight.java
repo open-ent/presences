@@ -13,10 +13,14 @@ public class AbsenceRight implements ResourcesProvider {
     @Override
     public void authorize(HttpServerRequest request, Binding binding, UserInfos user, Handler<Boolean> handler) {
         String structure = request.getParam(Field.STRUCTURE);
-        handler.handle(user.getStructures().contains(structure)
-                && (WorkflowHelper.hasRight(user, WorkflowActions.ABSENCES_WIDGET.toString()))
+        // Le super-admin plateforme n'est pas forcément rattaché (user.getStructures()) à
+        // l'établissement consulté ; sans ce contournement, le dashboard Pilotage lui est
+        // inaccessible pour tout établissement hors de son propre rattachement.
+        handler.handle(user.isADMC()
+                || (user.getStructures().contains(structure)
+                    && (WorkflowHelper.hasRight(user, WorkflowActions.ABSENCES_WIDGET.toString()))
                     || WorkflowHelper.hasRight(user, WorkflowActions.CALENDAR_VIEW.toString())
-                    || WorkflowHelper.hasRight(user, WorkflowActions.MANAGE_PRESENCE.toString()));
+                    || WorkflowHelper.hasRight(user, WorkflowActions.MANAGE_PRESENCE.toString())));
     }
 }
 

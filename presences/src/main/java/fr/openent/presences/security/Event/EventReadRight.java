@@ -10,7 +10,10 @@ import org.entcore.common.user.UserInfos;
 public class EventReadRight implements ResourcesProvider {
     @Override
     public void authorize(HttpServerRequest request, Binding binding, UserInfos user, Handler<Boolean> handler) {
-        handler.handle(WorkflowActionsCouple.READ_EVENT.hasRight(user));
+        // Le super-admin plateforme n'a pas forcément les rôles calculés par structure sur un
+        // établissement auquel il n'est pas rattaché ; sans ce contournement, le dashboard
+        // Pilotage (absences/retards) lui est inaccessible.
+        handler.handle(user.isADMC() || WorkflowActionsCouple.READ_EVENT.hasRight(user));
     }
 }
 

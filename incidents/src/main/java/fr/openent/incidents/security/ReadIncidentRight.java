@@ -14,7 +14,11 @@ public class ReadIncidentRight implements ResourcesProvider {
     public void authorize(HttpServerRequest request, Binding binding, UserInfos user, Handler<Boolean> handler) {
         String structure = (request.getParam(Field.STRUCTUREID) != null) ? request.getParam(Field.STRUCTUREID) :
                 request.getParam(Field.STRUCTURE_ID);
-        handler.handle(user.getStructures().contains(structure) &&
-                WorkflowHelper.hasRight(user, WorkflowActions.READ_INCIDENT.toString()));
+        // Le super-admin plateforme n'est pas forcément rattaché (user.getStructures()) à
+        // l'établissement consulté ; sans ce contournement, le dashboard Pilotage lui est
+        // inaccessible pour tout établissement hors de son propre rattachement.
+        handler.handle(user.isADMC() ||
+                (user.getStructures().contains(structure) &&
+                        WorkflowHelper.hasRight(user, WorkflowActions.READ_INCIDENT.toString())));
     }
 }
