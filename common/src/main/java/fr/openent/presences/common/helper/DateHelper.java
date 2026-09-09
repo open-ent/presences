@@ -134,13 +134,6 @@ public class DateHelper {
     }
 
     public static Date parse(String date) throws ParseException {
-        // Une date SQL "DATE" pure (colonnes comme incidents.date) est sérialisée sans heure ni "T"
-        // (ex. "2026-09-08") — ni SQL_FORMAT ni MONGO_FORMAT ne la reconnaissent, ce qui levait une
-        // ParseException systématique pour tout appelant lui passant une telle valeur (ex.
-        // CalendarHelper.incident, qui comparait ensuite silencieusement à "jamais avant/après").
-        if (date != null && date.length() == 10 && !date.contains("T")) {
-            return new SimpleDateFormat(YEAR_MONTH_DAY).parse(date);
-        }
         SimpleDateFormat ssdf = DateHelper.getPsqlSimpleDateFormat();
         SimpleDateFormat msdf = DateHelper.getMongoSimpleDateFormat();
         return date.contains("T") ? ssdf.parse(date) : msdf.parse(date);
@@ -148,14 +141,6 @@ public class DateHelper {
 
     public static Date parseDate(String dateString) {
         Date date = new Date();
-        if (dateString != null && dateString.length() == 10 && !dateString.contains("T")) {
-            try {
-                return new SimpleDateFormat(YEAR_MONTH_DAY).parse(dateString);
-            } catch (ParseException e) {
-                LOGGER.error("[Presence@DateHelper::parseDate] Error when casting date: ", e);
-                return date;
-            }
-        }
         SimpleDateFormat ssdf = DateHelper.getPsqlSimpleDateFormat();
         SimpleDateFormat msdf = DateHelper.getMongoSimpleDateFormat();
         try {
