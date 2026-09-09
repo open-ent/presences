@@ -710,6 +710,10 @@ public class DefaultPunishmentService implements PunishmentService {
                     .put(Field.OFFSET, offset);
         }
 
+        // punishmentsNumber est le VRAI total (COUNT(*) en base), déjà calculé pour la pagination
+        // mais jusqu'ici jamais exposé au client en mode limit/offset (ex. dashboard, limit=5) :
+        // impossible de distinguer "5 résultats sur 5 au total" de "5 résultats sur 200".
+        finalResult.put(Field.COUNT, punishmentsNumber);
         finalResult.put(Field.ALL, punishments);
         handler.handle(Future.succeededFuture(finalResult));
     }
