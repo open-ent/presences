@@ -15,9 +15,12 @@ public class RegisterViewRight implements ResourcesProvider {
         String structure = request.getParam(Field.STRUCTUREID);
         structure = structure != null ? structure : request.getParam(Field.STRUCTURE_ID);
         structure = structure != null ? structure : request.getParam(Field.STRUCTURE);
+        // Le super-admin plateforme n'est pas forcément rattaché à l'établissement consulté ;
+        // sans ce contournement, le dashboard Pilotage lui est inaccessible.
         handler.handle(
-                user.getStructures().contains(structure) &&
-                        WorkflowHelper.hasRight(user, WorkflowActions.READ_REGISTER.toString())
+                user.isADMC() ||
+                        (user.getStructures().contains(structure) &&
+                                WorkflowHelper.hasRight(user, WorkflowActions.READ_REGISTER.toString()))
         );
     }
 }
