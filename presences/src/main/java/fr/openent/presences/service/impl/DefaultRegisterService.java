@@ -1230,16 +1230,10 @@ public class DefaultRegisterService extends DBService implements RegisterService
                 + Presences.dbSchema + ".register WHERE structure_id = ? AND state_id != 3 " +
                 "AND start_date > ?::timestamp AND start_date < ?::timestamp ORDER BY start_date DESC";
 
-        // startDate/endDate arrivent en date seule ("YYYY-MM-DD", paramètres de requête HTTP) alors
-        // que register.start_date est un timestamp complet : un endDate non complété d'heure exclut
-        // tout registre "oublié" démarré le jour même après minuit. Borne sur la journée complète.
-        String endDateBound = endDate != null && endDate.length() <= 10 ? endDate + " 23:59:59" : endDate;
-        String startDateBound = startDate != null && startDate.length() <= 10 ? startDate + " 00:00:00" : startDate;
-
         JsonArray params = new JsonArray();
         params.add(structureId)
-                .add(startDateBound)
-                .add(endDateBound);
+                .add(startDate)
+                .add(endDate);
         sql.prepared(query, params, SqlResult.validResultHandler(result -> {
             if (result.isLeft()) {
                 String message = "[Presences@DefaultCourseService::getLastForgottenRegisters] Failed to get " +

@@ -253,19 +253,14 @@ public class DefaultCollectiveAbsenceService extends DBService implements Collec
         params.add(structureId);
         String where = " WHERE ca.structure_id = ? ";
 
-        // startDate/endDate arrivent en date seule ("YYYY-MM-DD") alors que ca.start_date/end_date
-        // sont des timestamps complets : sans heure ajoutée, endDate est traité comme minuit et
-        // exclut toute absence collective démarrant le jour même après 00:00 (et startDate exclut
-        // celles se terminant avant l'heure de fin de matinée du jour même). Borne sur la journée
-        // complète quand aucune heure n'est déjà fournie.
         if (endDate != null) {
-            params.add(endDate.length() <= 10 ? endDate + " 23:59:59" : endDate);
-            where += " AND ca.start_date <= ? ";
+            params.add(endDate);
+            where += " AND ca.start_date < ? ";
         }
 
         if (startDate != null) {
-            params.add(startDate.length() <= 10 ? startDate + " 00:00:00" : startDate);
-            where += " AND ca.end_date >= ? ";
+            params.add(startDate);
+            where += " AND ca.end_date > ? ";
         }
 
         if (reasonId != null) {

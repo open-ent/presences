@@ -156,18 +156,14 @@ public class DefaultStatementAbsenceService implements StatementAbsenceService {
             params.add(id);
         }
 
-        // end_at/start_at arrivent en date seule ("YYYY-MM-DD", paramètres de requête HTTP) alors que
-        // start_at/end_at en base sont des timestamps complets : une comparaison directe traite la
-        // date seule comme minuit et exclut tout justificatif chevauchant le jour même après 00:00.
-        // On borne sur la journée complète (00:00:00 → 23:59:59) quand aucune heure n'est fournie.
         if (end_at != null) {
-            query += "AND start_at <= ?::timestamp ";
-            params.add(end_at.length() <= 10 ? end_at + " 23:59:59" : end_at);
+            query += "AND start_at <= ? ";
+            params.add(end_at);
         }
 
         if (start_at != null) {
-            query += "AND end_at >= ?::timestamp ";
-            params.add(start_at.length() <= 10 ? start_at + " 00:00:00" : start_at);
+            query += "AND end_at >= ? ";
+            params.add(start_at);
         }
 
         if (student_ids != null && student_ids.size() > 0) {
