@@ -123,11 +123,16 @@ public class IncidentsController extends ControllerHelper {
                     CompositeFuture.all(incidentsPromise.future(), pageNumberPromise.future())
                             .onFailure(fail -> renderError(request, JsonObject.mapFrom(fail.getCause().getMessage())))
                             .onSuccess(event -> {
+                                // pageNumberPromise porte le VRAI total (COUNT(*) en base), déjà calculé
+                                // pour dériver page_count mais jusqu'ici jamais exposé tel quel : un
+                                // appelant qui ignore la pagination (dashboard, "all" plafonné à
+                                // PAGE_SIZE) ne pouvait pas distinguer "20 résultats sur 20 au total"
+                                // de "20 résultats sur 200".
+                                long total = pageNumberPromise.future().result().getLong(Field.COUNT);
                                 JsonObject res = new JsonObject()
                                         .put(Field.PAGE, Integer.parseInt(page))
-                                        .put(Field.PAGE_COUNT, (pageNumberPromise.future().result()
-                                                .getLong(Field.COUNT) <= Incidents.PAGE_SIZE) ? 0
-                                                : (pageNumberPromise.future().result().getLong(Field.COUNT) / Incidents.PAGE_SIZE))
+                                        .put(Field.PAGE_COUNT, total <= Incidents.PAGE_SIZE ? 0 : (total / Incidents.PAGE_SIZE))
+                                        .put(Field.COUNT, total)
                                         .put(Field.ALL, incidentsPromise.future().result());
                                 renderJson(request, res);
                             });
