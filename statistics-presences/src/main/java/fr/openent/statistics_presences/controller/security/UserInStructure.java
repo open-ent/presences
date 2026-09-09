@@ -14,7 +14,10 @@ public class UserInStructure implements ResourcesProvider {
     @Override
     public void authorize(HttpServerRequest request, Binding binding, UserInfos user, Handler<Boolean> handler) {
         String structure = request.getParam(Field.STRUCTURE);
-        handler.handle(user.getStructures().contains(structure)
-                && WorkflowActionsCouple.STATISTICS_PRESENCES_MANAGE.hasRight(user));
+        // Le super-admin plateforme n'est pas forcément rattaché à l'établissement consulté ;
+        // sans ce contournement, le dashboard Pilotage lui est inaccessible.
+        handler.handle(user.isADMC()
+                || (user.getStructures().contains(structure)
+                    && WorkflowActionsCouple.STATISTICS_PRESENCES_MANAGE.hasRight(user)));
     }
 }
