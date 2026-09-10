@@ -16,11 +16,14 @@ public class AbsenceRight implements ResourcesProvider {
         // Le super-admin plateforme n'est pas forcément rattaché (user.getStructures()) à
         // l'établissement consulté ; sans ce contournement, le dashboard Pilotage lui est
         // inaccessible pour tout établissement hors de son propre rattachement.
+        // IDOR corrigé : la précédence Java (&& avant ||) faisait passer CALENDAR_VIEW/MANAGE_PRESENCE
+        // sans jamais vérifier l'appartenance à la structure demandée. Le contrôle de structure doit
+        // s'appliquer aux trois droits, pas seulement à ABSENCES_WIDGET.
         handler.handle(user.isADMC()
                 || (user.getStructures().contains(structure)
-                    && (WorkflowHelper.hasRight(user, WorkflowActions.ABSENCES_WIDGET.toString()))
-                    || WorkflowHelper.hasRight(user, WorkflowActions.CALENDAR_VIEW.toString())
-                    || WorkflowHelper.hasRight(user, WorkflowActions.MANAGE_PRESENCE.toString())));
+                    && (WorkflowHelper.hasRight(user, WorkflowActions.ABSENCES_WIDGET.toString())
+                        || WorkflowHelper.hasRight(user, WorkflowActions.CALENDAR_VIEW.toString())
+                        || WorkflowHelper.hasRight(user, WorkflowActions.MANAGE_PRESENCE.toString()))));
     }
 }
 
