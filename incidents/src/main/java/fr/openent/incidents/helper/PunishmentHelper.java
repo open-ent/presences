@@ -74,7 +74,12 @@ public class PunishmentHelper {
                          Handler<AsyncResult<JsonObject>> handler) {
         JsonObject query = new JsonObject().put("structure_id", structureId);
 
-        if (!isStudent && user != null && (!WorkflowHelper.hasRight(user, WorkflowActions.PUNISHMENTS_VIEW.toString()) || !WorkflowHelper.hasRight(user, WorkflowActions.SANCTIONS_VIEW.toString()))) {
+        // Sans le droit fonction PUNISHMENTS_VIEW/SANCTIONS_VIEW (calculé par structure), la
+        // requête se restreint aux sanctions dont l'appelant est l'auteur. Un super-admin non
+        // rattaché n'a jamais ce droit ET n'est jamais l'auteur d'aucune sanction créée par les
+        // vrais utilisateurs de l'établissement : sans l'exception isADMC(), il voit toujours 0
+        // résultat, silencieusement, même une fois l'accès au endpoint autorisé (PunishmentsViewRight).
+        if (!isStudent && user != null && !user.isADMC() && (!WorkflowHelper.hasRight(user, WorkflowActions.PUNISHMENTS_VIEW.toString()) || !WorkflowHelper.hasRight(user, WorkflowActions.SANCTIONS_VIEW.toString()))) {
             query.put("owner_id", user.getUserId());
         }
 
