@@ -38,12 +38,23 @@ public class DatabaseStarter {
 
     private void checkPresencesSchema(Handler<Boolean> handler) {
         String query = "SELECT count(schema_name) as count FROM information_schema.schemata WHERE schema_name = 'presences';";
-        Sql.getInstance().raw(query, evt -> handler.handle(SqlResult.countResult(evt) > 0));
+        Sql.getInstance().raw(query, evt -> handler.handle(hasRows(evt)));
     }
 
     private void checkStarterState(Handler<Boolean> handler) {
         String query = "SELECT count(filename) as count FROM massmailing.scripts WHERE filename = 'auto_massmailing_starter';";
-        Sql.getInstance().raw(query, evt -> handler.handle(SqlResult.countResult(evt) > 0));
+        Sql.getInstance().raw(query, evt -> handler.handle(hasRows(evt)));
+    }
+
+    /**
+     * countResult() renvoie null quand la requête échoue (mod-postgresql pas encore joignable
+     * au démarrage, délai dépassé) : le déballer en long levait une NullPointerException
+     * non gérée sur l'event loop. Un échec vaut « non », l'initialisation sera retentée au
+     * prochain démarrage.
+     */
+    private static boolean hasRows(io.vertx.core.eventbus.Message<JsonObject> evt) {
+        Long count = SqlResult.countResult(evt);
+        return count != null && count > 0;
     }
 
     private JsonObject eventStatement() {
