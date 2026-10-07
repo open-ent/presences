@@ -55,7 +55,7 @@
         <powerMockVersion>2.0.2</powerMockVersion>
         <mockitoVersion>[2.0,3.0)</mockitoVersion>
         <entCoreVersion>6.16.14-patched</entCoreVersion>
-        <entCoreLibsVersion>6.16.7-patched</entCoreLibsVersion>
+        <entCoreLibsVersion>6.16.8-patched</entCoreLibsVersion>
         <reflectionsVersion>0.10.2</reflectionsVersion>
         <gatlingHighchartsVersion>2.2.2</gatlingHighchartsVersion>
     </properties>
