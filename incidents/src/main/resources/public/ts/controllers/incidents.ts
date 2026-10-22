@@ -7,6 +7,7 @@ import {INCIDENTS_FORM_EVENTS} from '../sniplets';
 import {DateUtils, GroupsSearch, StudentsSearch} from "@common/utils";
 import {IViescolaireService, ViescolaireService} from "@common/services/ViescolaireService";
 import {GroupingService} from "@common/services";
+import {SNIPLET_FORM_EMIT_PUNISHMENT_EVENTS} from "@common/model";
 
 declare let window: any;
 
@@ -59,6 +60,8 @@ interface ViewModel {
     removeSelectedGroups(groupItem: Group): void;
 
     editIncidentLightbox(incident: Incident): void;
+
+    punishFromIncident(incident: Incident): void;
 }
 
 export const incidentsController = ng.controller('IncidentsController',    ['$scope', '$location',
@@ -265,6 +268,14 @@ export const incidentsController = ng.controller('IncidentsController',    ['$sc
             $scope.safeApply();
             throw err;
         }
+    };
+
+    /* ouvre le formulaire de punition/sanction rattaché à l'incident, ses protagonistes présélectionnés */
+    vm.punishFromIncident = (incident: Incident): void => {
+        $scope.$broadcast(SNIPLET_FORM_EMIT_PUNISHMENT_EVENTS.CREATE_FROM_INCIDENT, {
+            id: incident.id,
+            protagonists: incident.protagonists.map(protagonist => ({userId: protagonist.userId, label: protagonist.label}))
+        });
     };
 
     vm.editIncidentLightbox = async function (incident: Incident) {

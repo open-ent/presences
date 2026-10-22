@@ -74,4 +74,8 @@ describe('punishments (édition, absences, filtres)', () => {
   it('filtre par élève et classe', () => {
     expect(listParams('s', 'a', 'b', 'all', [], ['e1', 'e2'], ['c1'])).toBe('structure_id=s&start_at=a&end_at=b&student_id=e1&student_id=e2&group_id=c1');
   });
+  it('rattache la punition à un incident', () => {
+    expect(createBody({ ...form({ categoryId: 3 }), incidentId: 42 }).incident_id).toBe(42);
+    expect(createBody(form({ categoryId: 3 })).incident_id).toBeUndefined();
+  });
 });

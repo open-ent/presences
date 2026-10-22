@@ -29,6 +29,8 @@ export interface PunishmentForm {
   mandatoryPresence: boolean;
   absence: AbsenceChoice;
   editing?: Editing;
+  /** Incident auquel la punition est rattachée (création depuis un incident). */
+  incidentId?: number;
 }
 
 export const emptySlot = (): Slot => ({ date: '', startTime: '', endTime: '', place: '' });
@@ -73,7 +75,7 @@ const absencePart = (f: PunishmentForm) => (f.absence.enabled ? { absence: { rea
 
 /** Corps de POST /incidents/punishments (« fields » : tableau pour la retenue, objet sinon). */
 export function createBody(f: PunishmentForm): Record<string, unknown> {
-  const base = { structure_id: f.structureId, type_id: f.typeId, student_ids: f.studentIds, description: f.description };
+  const base = { structure_id: f.structureId, type_id: f.typeId, student_ids: f.studentIds, description: f.description, ...(f.incidentId ? { incident_id: f.incidentId } : {}) };
   switch (f.categoryId) {
     case 1:
       return { ...base, fields: { delay_at: sec(f.delayDate, '00:00:00'), instruction: f.instruction } };

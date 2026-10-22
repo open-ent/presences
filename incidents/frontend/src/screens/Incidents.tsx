@@ -2,11 +2,13 @@ import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api';
 import { dateFr, heure, ouiNon, schoolYear } from '../utils';
 import { Pager } from '../components/Pager';
 import { QueryErrors } from '../components/QueryErrors';
+import { useRights } from '../rights';
 import { useStructure } from '../structure';
 
 /**
@@ -19,6 +21,9 @@ export function Incidents() {
   const { user, init } = useEdificeClient();
   const qc = useQueryClient();
   const { structureId } = useStructure();
+  const navigate = useNavigate();
+  const rights = useRights();
+  const canPunish = rights.createPunishment || rights.createSanction;
   const ownerId = (user as { userId?: string } | undefined)?.userId ?? '';
 
   const [start, setStart] = useState(schoolYear().start);
@@ -126,6 +131,7 @@ export function Incidents() {
                 <th>{t('incidents.partner', { defaultValue: 'Partenaire' })}</th>
                 <th>{t('incidents.description', { defaultValue: 'Description' })}</th>
                 <th className="text-center">{t('incidents.processed', { defaultValue: 'Traité' })}</th>
+                {canPunish && <th />}
               </tr>
             </thead>
             <tbody>
@@ -152,6 +158,27 @@ export function Incidents() {
                       />
                     </div>
                   </td>
+                  {canPunish && (
+                    <td className="text-nowrap">
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm"
+                        data-punish={i.id}
+                        onClick={() =>
+                          navigate('/punitions', {
+                            state: {
+                              incident: {
+                                id: i.id,
+                                students: (i.raw.protagonists ?? []).filter((p) => p.user_id).map((p) => ({ id: p.user_id as string, displayName: p.student?.displayName ?? '' })),
+                              },
+                            },
+                          })
+                        }
+                      >
+                        {t('incidents.punishment.from.incident', { defaultValue: 'Punir / sanctionner' })}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

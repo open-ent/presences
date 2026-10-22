@@ -188,6 +188,7 @@
   "incidents.punishments.empty.state": "Aucune punition ou sanction sur cette période",
   "incidents.punishments.get.grouped.err": "Une erreur est survenue dans le chargement des punitions",
   "incidents.punishments.punishments.sanctions.button.form": "Punition / sanction",
+  "incidents.punishment.from.incident": "Punir / sanctionner",
   "incidents.sanctions": "Sanctions",
   "incidents.search.personal": "Rechercher un personnel",
   "incidents.search.student": "Rechercher un élève",

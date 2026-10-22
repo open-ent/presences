@@ -1,6 +1,7 @@
 import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
@@ -31,6 +32,8 @@ export function Punitions() {
   const qc = useQueryClient();
   const { structureId } = useStructure();
   const rights = useRights();
+  const location = useLocation();
+  const [extraNames, setExtraNames] = useState<Record<string, string>>({});
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);
@@ -93,7 +96,7 @@ export function Punitions() {
     if (q.length < 2) return [];
     return (studentsQuery.data ?? []).filter((s) => s.displayName.toLowerCase().includes(q) && !form.studentIds.includes(s.id)).slice(0, 10);
   }, [studentsQuery.data, search, form.studentIds]);
-  const nameOf = (id: string) => studentsQuery.data?.find((s) => s.id === id)?.displayName ?? id;
+  const nameOf = (id: string) => studentsQuery.data?.find((s) => s.id === id)?.displayName ?? extraNames[id] ?? id;
 
   const filterResults = useMemo(() => {
     const q = studentFilterSearch.trim().toLowerCase();
@@ -114,6 +117,18 @@ export function Punitions() {
     setSaved(null);
     setCreating(true);
   };
+  // Arrivée depuis un incident (bouton « Punir / sanctionner ») : formulaire ouvert, protagonistes présélectionnés.
+  useEffect(() => {
+    const incident = (location.state as { incident?: { id: number; students: Array<{ id: string; displayName: string }> } } | null)?.incident;
+    if (!incident || !structureId || !rights.ready) return;
+    setExtraNames(Object.fromEntries(incident.students.map((x) => [x.id, x.displayName])));
+    setForm({ ...emptyForm(structureId), studentIds: incident.students.map((x) => x.id), incidentId: incident.id });
+    setOldPeriod(null);
+    setSaved(null);
+    setCreating(true);
+    window.history.replaceState({}, '');
+  }, [location.state, structureId, rights.ready]);
+
   const onType = (value: string) => {
     const ty = allTypes.find((x) => x.id === Number(value));
     set({ typeId: ty ? ty.id : null, categoryId: ty && ty.punishment_category_id ? (ty.punishment_category_id as CategoryId) : null });
@@ -202,6 +217,7 @@ export function Punitions() {
           data-punishment-form
           onSubmit={(e) => { e.preventDefault(); setSubmitted(true); if (!err) createMut.mutate(); }}
         >
+          {form.incidentId && <p className="text-muted" data-from-incident>{t('incidents.punishment.from.incident.info', { defaultValue: "Punition rattachée à l'incident n° [[id]]", id: form.incidentId })}</p>}
           <h2 style={{ fontSize: 18 }} className="mb-12">{editing ? t('incidents.punishment.edit', { defaultValue: 'Modifier la punition / sanction' }) : t('incidents.punishment.new', { defaultValue: 'Nouvelle punition / sanction' })}</h2>
           <div className="mb-12">
             <label htmlFor="pun-type" className="form-label">{t('incidents.type', { defaultValue: 'Type' })}</label>

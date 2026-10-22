@@ -70,10 +70,17 @@ interface ViewModel {
     removeSelectedStudents(studentItem): void;
 
     closePunishmentLightbox(): void;
+
+    incidentId: number;
+
+    isOpenButtonVisible(): boolean;
+
+    openFromIncident(incident: { id: number, protagonists: Array<{ userId: string, label: string }> }): void;
 }
 
 const vm: ViewModel = {
     safeApply: null,
+    incidentId: null,
     createPunishmentLightBox: false,
     studentsSearch: undefined,
     punishmentTypes: [],
@@ -89,7 +96,27 @@ const vm: ViewModel = {
     selectPunishmentGroupBy: (punishmentType: IPunishmentType) => punishmentType.type === PunishmentsUtils.RULES.punishment ?
         lang.translate("incidents.punishments") : lang.translate("incidents.sanctions"),
 
+    /** Sur la page des incidents, la punition se crée depuis un incident : le bouton général y est masqué. */
+    isOpenButtonVisible(): boolean {
+        return !(window.location.pathname.startsWith('/incidents') && !window.location.hash.includes('punishment'));
+    },
+
+    /** Ouvre le formulaire pour un incident : ses protagonistes sont présélectionnés et la punition y est rattachée. */
+    openFromIncident(incident: { id: number, protagonists: Array<{ userId: string, label: string }> }): void {
+        vm.openPunishmentLightbox();
+        vm.incidentId = incident.id;
+        vm.studentsSearch.setSelectedStudents((incident.protagonists || [])
+            .filter(protagonist => protagonist.userId)
+            .map(protagonist => ({
+                id: protagonist.userId,
+                displayName: protagonist.label,
+                toString: () => protagonist.label
+            } as User)));
+        vm.safeApply();
+    },
+
     openPunishmentLightbox(): void {
+        vm.incidentId = null;
         vm.studentsSearch = new StudentsSearch(window.structure.id, SearchService);
         vm.form = {} as IPunishmentBody;
         vm.form.type = null as IPunishmentType;
@@ -139,13 +166,12 @@ const vm: ViewModel = {
     preparePunishmentForm: (): void => {
         if (vm.punishment.id) {
             vm.form.student_id = vm.punishment.student.id;
-            // todo edit incident for next feature
+            // le rattachement à un incident ne change pas à la modification
             vm.form.incident_id = null;
         } else {
             vm.form.structure_id = window.structure.id;
             vm.form.student_ids = vm.studentsSearch.getSelectedStudents().map(student => student["id"]);
-            // todo edit incident for next feature
-            vm.form.incident_id = null;
+            vm.form.incident_id = vm.incidentId;
         }
     },
 
@@ -239,6 +265,7 @@ const vm: ViewModel = {
     },
 
     closePunishmentLightbox(): void {
+        vm.incidentId = null;
         vm.form = {} as IPunishmentBody;
         vm.punishment = {} as IPunishment;
         vm.createPunishmentLightBox = false;
@@ -324,6 +351,7 @@ export const punishmentForm = {
         },
         setHandler: function () {
             this.$on(SNIPLET_FORM_EMIT_PUNISHMENT_EVENTS.OPEN, (event: IAngularEvent, punishment) => vm.editPunishmentForm(punishment));
+            this.$on(SNIPLET_FORM_EMIT_PUNISHMENT_EVENTS.CREATE_FROM_INCIDENT, (event: IAngularEvent, incident) => vm.openFromIncident(incident));
             this.$on("$destroy", () => {
                 delete window.alerts_item;
             });
