@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
  * s'affichait comme « aucune donnée » (« Aucun appel oublié », « Aucune absence à régulariser »…).
  */
 export function QueryErrors({ queries }: { queries: Array<{ isError: boolean; refetch: () => unknown }> }) {
-  const { t } = useTranslation(['presences', 'common']);
+  const { t } = useTranslation(['massmailing', 'common']);
   const failed = queries.filter((q) => q.isError);
   if (failed.length === 0) return null;
   return (
