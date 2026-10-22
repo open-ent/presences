@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import { api, STUDENT_EVENT_TYPES, StudentEvent, StudentEventType } from '../api';
 import { QueryErrors } from '../components/QueryErrors';
+import { StatementForm } from '../components/StatementForm';
+import { useRights } from '../rights';
 import { useStructure } from '../structure';
 import { dateFr, heure, schoolYear } from '../utils';
 
@@ -30,6 +32,7 @@ export function MonSuivi() {
   const { user } = useEdificeClient();
   const { structureId } = useStructure();
   const isParent = user?.type === 'PERSRELELEVE';
+  const rights = useRights();
   const year = schoolYear();
   const [start, setStart] = useState(year.start);
   const [end, setEnd] = useState(year.end);
@@ -106,6 +109,9 @@ export function MonSuivi() {
             );
           })}
         </div>
+      )}
+      {isParent && rights.createStatement && childId && (
+        <StatementForm structureId={structureId} studentId={childId} studentName={children.find((c) => c.id === childId)?.displayName ?? ''} />
       )}
     </div>
   );

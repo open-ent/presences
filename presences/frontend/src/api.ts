@@ -462,6 +462,30 @@ export const createEventAction = async (eventIds: number[], actionId: number, ow
   if (!res.ok) throw new Error(String(res.status));
 };
 
+// ── Déclarations d'absence (parents) ─────────────────────────────────────────────
+import type { RawStatement } from './statements';
+
+export interface StatementsPage { page: number; page_count: number; all: RawStatement[] }
+
+/** Déclarations d'absence filtrées (`params` vient de `statementParams`, page comprise). */
+export const getStatementsPage = async (params: string): Promise<StatementsPage> => {
+  const d = await json<Partial<StatementsPage> | RawStatement[]>(await fetch(`/presences/statements/absences${params}`, base));
+  if (Array.isArray(d)) return { page: 0, page_count: 1, all: d };
+  return { page: d?.page ?? 0, page_count: d?.page_count ?? 1, all: d?.all ?? [] };
+};
+
+/** Marque une déclaration traitée / non traitée (PUT .../validate). */
+export const validateStatement = async (id: number, isTreated: boolean): Promise<void> => {
+  const res = await fetch(`/presences/statements/absences/${id}/validate`, { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify({ is_treated: isTreated }) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Dépose une déclaration (multipart ; avec pièce jointe l'adresse change). */
+export const createStatement = async (data: FormData): Promise<void> => {
+  const res = await fetch(`/presences/statements/absences${data.has('file') ? '/attachment' : ''}`, { ...base, method: 'POST', headers: xsrfHeader(), body: data });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Régularise (ou dé-régularise) des événements d'absence (PUT /presences/events/regularized). */
 export const regularizeEvents = async (ids: number[], regularized: boolean): Promise<void> => {
   const res = await fetch(`/presences/events/regularized`, {
@@ -629,7 +653,7 @@ export const api = {
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
   getAlertSummary, getForgottenRegisters, getStatements,
-  getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
+  getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,
   getPresences, getStudentEvents, getChildren,
 };

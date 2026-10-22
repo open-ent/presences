@@ -14,6 +14,10 @@ export const WORKFLOW = {
   widgetAlerts: 'fr.openent.presences.controller.FakeRight|widgetAlerts',
   widgetForgottenRegisters: 'fr.openent.presences.controller.FakeRight|widgetForgottenRegisters',
   widgetStatements: 'fr.openent.presences.controller.FakeRight|widgetStatements',
+  manageStatements: 'fr.openent.presences.controller.StatementAbsenceController|validate',
+  manageStatementsRestricted: 'fr.openent.presences.controller.FakeRight|manageAbsenceStatementsRestricted',
+  viewStatements: 'fr.openent.presences.controller.FakeRight|AbsenceStatementsView',
+  createStatement: 'fr.openent.presences.controller.FakeRight|AbsenceStatementsCreate',
   widgetDayCourses: 'fr.openent.presences.controller.FakeRight|widgetDayCourses',
   widgetDayPresences: 'fr.openent.presences.controller.FakeRight|widgetDayPresences',
   widgetAbsences: 'fr.openent.presences.controller.FakeRight|widgetAbsences',
@@ -33,6 +37,10 @@ export interface Rights {
   widgetAlerts: boolean;
   widgetForgottenRegisters: boolean;
   widgetStatements: boolean;
+  /** Consulter et traiter les déclarations d'absence des parents (droit complet, restreint ou de lecture). */
+  statements: boolean;
+  /** Déposer une déclaration d'absence (responsable légal). */
+  createStatement: boolean;
   widgetDayCourses: boolean;
   widgetDayPresences: boolean;
   /** Droit d'accès aux absences et aux motifs (`AbsenceRight` côté serveur : un des trois droits). */
@@ -54,6 +62,10 @@ export function useRights(): Rights {
     widgetAlerts: has(WORKFLOW.widgetAlerts),
     widgetForgottenRegisters: has(WORKFLOW.widgetForgottenRegisters),
     widgetStatements: has(WORKFLOW.widgetStatements),
+    manageStatements: has(WORKFLOW.manageStatements),
+    manageStatementsRestricted: has(WORKFLOW.manageStatementsRestricted),
+    viewStatements: has(WORKFLOW.viewStatements),
+    createStatement: has(WORKFLOW.createStatement),
     widgetDayCourses: has(WORKFLOW.widgetDayCourses),
     widgetDayPresences: has(WORKFLOW.widgetDayPresences),
     widgetAbsences: has(WORKFLOW.widgetAbsences),
@@ -74,6 +86,7 @@ export function useRights(): Rights {
     widgetDayCourses: b(flags.widgetDayCourses),
     widgetDayPresences: b(flags.widgetDayPresences),
   };
+  const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, absences, staff: absences || Object.values(out).some(Boolean) };
+  return { ready, ...out, statements, createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }

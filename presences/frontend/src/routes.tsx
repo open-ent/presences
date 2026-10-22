@@ -2,6 +2,7 @@ import { RouteObject, createHashRouter } from 'react-router-dom';
 
 import { Absences } from './screens/Absences';
 import { Dashboard } from './screens/Dashboard';
+import { Declarations } from './screens/Declarations';
 import { Dispenses } from './screens/Dispenses';
 import { Regularisation } from './screens/Regularisation';
 import { Registre } from './screens/Registre';
@@ -18,6 +19,7 @@ export const routes: RouteObject[] = [
       { path: 'registre', element: <Guard right="readRegister"><Registre /></Guard> },
       { path: 'absences', element: <Guard right="absences"><Absences /></Guard> },
       { path: 'regularisation', element: <Guard right="readEvent"><Regularisation /></Guard> },
+      { path: 'declarations', element: <Guard right="statements"><Declarations /></Guard> },
       { path: 'dispenses', element: <Guard right="readExemption"><Dispenses /></Guard> },
       { path: 'parametrage', element: <Guard right="absences"><Dashboard /></Guard> },
     ],
