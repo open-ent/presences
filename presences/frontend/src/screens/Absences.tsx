@@ -4,7 +4,8 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
-import { visibleByLabel } from '../utils';
+import { visibleByLabel, schoolYear } from '../utils';
+import { QueryErrors } from '../components/QueryErrors';
 
 /** Saisie d'absences : recherche élève → création d'une absence + liste. Nécessite droit ADML/vie sco. */
 export function Absences() {
@@ -28,7 +29,7 @@ export function Absences() {
   const absKey = ['pres', 'absences', structureId, studentId];
   const absencesQuery = useQuery({
     queryKey: absKey,
-    queryFn: () => api.getStudentAbsences(structureId, studentId, '2025-09-01', '2026-08-31'),
+    queryFn: () => api.getStudentAbsences(structureId, studentId, schoolYear().start, schoolYear().end),
     enabled: !!structureId && !!studentId,
   });
 
@@ -56,6 +57,7 @@ export function Absences() {
   return (
     <div>
       <h1 className="mb-16">{t('presences.absences.title', { defaultValue: 'Saisie des absences' })}</h1>
+      <QueryErrors queries={[studentsQuery, reasonsQuery, absencesQuery]} />
 
       {/* Recherche d'élève */}
       <div className="mb-16" style={{ maxWidth: 520, position: 'relative' }}>
@@ -99,7 +101,7 @@ export function Absences() {
           <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
             <h2 style={{ fontSize: 18 }} className="mb-12">{t('presences.absences.list', { defaultValue: 'Absences de l’élève' })}</h2>
             {absencesQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-            {!absencesQuery.isLoading && (absencesQuery.data ?? []).length === 0 && <p className="text-muted mb-0">{t('presences.absences.empty', { defaultValue: 'Aucune absence enregistrée.' })}</p>}
+            {!absencesQuery.isLoading && !absencesQuery.isError && (absencesQuery.data ?? []).length === 0 && <p className="text-muted mb-0">{t('presences.absences.empty', { defaultValue: 'Aucune absence enregistrée.' })}</p>}
             {(absencesQuery.data ?? []).length > 0 && (
               <ul className="list-unstyled mb-0">
                 {(absencesQuery.data ?? []).map((a) => (

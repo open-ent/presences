@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api, MASSMAILING_TYPES, MassmailingType } from '../api';
-import { totalCount, typeLabel } from '../utils';
+import { totalCount, typeLabel, schoolYear } from '../utils';
+import { QueryErrors } from '../components/QueryErrors';
 
 /**
  * Publipostage — parité IHM AngularJS (CCTP 51C) : sélection du type d'événement, de la période
@@ -18,8 +19,8 @@ export function Publipostage() {
 
   const [type, setType] = useState<MassmailingType>('UNREGULARIZED');
   const [startAt, setStartAt] = useState(1);
-  const [start, setStart] = useState('2025-09-01');
-  const [end, setEnd] = useState('2026-07-31');
+  const [start, setStart] = useState(schoolYear().start);
+  const [end, setEnd] = useState(schoolYear().end);
 
   const key = [structureId, type, startAt, start, end] as const;
   const statusQuery = useQuery({ queryKey: ['mm', 'status', ...key], queryFn: () => api.getStatus(structureId, type, startAt, start, end), enabled: !!structureId });
@@ -42,6 +43,7 @@ export function Publipostage() {
   return (
     <div>
       <h1 className="mb-16">{t('massmailing.title', { defaultValue: 'Publipostage' })}</h1>
+      <QueryErrors queries={[statusQuery, prefetchQuery, anomaliesQuery]} />
 
       {/* Filtres : type d'événement + seuil + période */}
       <div className="d-flex gap-12 align-items-end flex-wrap mb-16">
@@ -135,7 +137,7 @@ export function Publipostage() {
         </section>
       )}
 
-      {status === 0 && !statusQuery.isLoading && (
+      {status === 0 && !statusQuery.isLoading && !statusQuery.isError && (
         <p className="text-muted">{t('massmailing.empty', { defaultValue: 'Aucun événement à publiposter sur la période.' })}</p>
       )}
     </div>

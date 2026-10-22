@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { ouiNon, seuil, visibleByLabel } from '../utils';
+import { QueryErrors } from '../components/QueryErrors';
 
 /** Paramétrage des présences : motifs d'absence (créer/supprimer), actions, dispositifs, réglages d'alerte. */
 export function Dashboard() {
@@ -104,6 +105,7 @@ export function Dashboard() {
   return (
     <div>
       <h1 className="mb-16">{t('presences.title', { defaultValue: 'Présences' })}</h1>
+      <QueryErrors queries={[reasonsQuery, actionsQuery, disciplinesQuery, settingsQuery]} />
       <p className="text-muted mb-16">
         {t('presences.dashboard.intro', { defaultValue: "Paramétrage de la présence pour l'établissement." })}
       </p>
@@ -128,7 +130,7 @@ export function Dashboard() {
           </form>
           {reasonError && <div className="alert alert-warning" role="alert">{reasonError}</div>}
           {reasonsQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-          {!reasonsQuery.isLoading && reasons.length === 0 && <p className="text-muted">{t('presences.reasons.empty', { defaultValue: 'Aucun motif.' })}</p>}
+          {!reasonsQuery.isLoading && !reasonsQuery.isError && reasons.length === 0 && <p className="text-muted">{t('presences.reasons.empty', { defaultValue: 'Aucun motif.' })}</p>}
           {reasons.length > 0 && (
             <ul className="list-unstyled mb-0">
               {reasons.map((r) => (

@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 
 import { api, ForgottenRegister, Statement } from '../api';
 import { ALERT_TYPES, alerteLabel, classeLabel, dateFr, eleveNom, heure, jour } from '../utils';
+import { QueryErrors } from '../components/QueryErrors';
 
 /**
  * Tableau de bord d'accueil des présences (parité IHM AngularJS) :
@@ -59,6 +60,7 @@ export function Accueil() {
     <div>
       <div className="d-flex align-items-center justify-content-between flex-wrap gap-8 mb-16">
         <h1 className="m-0">{t('presences.dashboard.title', { defaultValue: 'Tableau de bord' })}</h1>
+      <QueryErrors queries={[summaryQuery, forgottenQuery, statementsQuery, todayEventsQuery, coursesQuery, presencesQuery]} />
         {/* Parité Angular : date du jour + nombre d'absents du jour */}
         <div className="d-flex align-items-center gap-16">
           <strong style={{ textTransform: 'capitalize' }}>
@@ -95,7 +97,7 @@ export function Accueil() {
             <span className="text-muted" style={{ fontSize: 14 }}>({forgotten.length})</span>
           </h2>
           {forgottenQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-          {!forgottenQuery.isLoading && forgotten.length === 0 && (
+          {!forgottenQuery.isLoading && !forgottenQuery.isError && forgotten.length === 0 && (
             <p className="text-muted">{t('presences.forgotten.empty', { defaultValue: 'Aucun appel oublié.' })}</p>
           )}
           {forgotten.length > 0 && (
@@ -120,7 +122,7 @@ export function Accueil() {
             <span className="text-muted" style={{ fontSize: 14 }}>({statements.length})</span>
           </h2>
           {statementsQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-          {!statementsQuery.isLoading && statements.length === 0 && (
+          {!statementsQuery.isLoading && !statementsQuery.isError && statements.length === 0 && (
             <p className="text-muted">{t('presences.statements.empty', { defaultValue: 'Aucune déclaration à traiter.' })}</p>
           )}
           {statements.length > 0 && (
@@ -147,7 +149,7 @@ export function Accueil() {
             <span className="text-muted" style={{ fontSize: 14 }}>({courses.length})</span>
           </h2>
           {coursesQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-          {!coursesQuery.isLoading && courses.length === 0 && (
+          {!coursesQuery.isLoading && !coursesQuery.isError && courses.length === 0 && (
             <p className="text-muted">{t('presences.today.calls.empty', { defaultValue: 'Aucun cours aujourd’hui.' })}</p>
           )}
           {courses.length > 0 && (
@@ -174,7 +176,7 @@ export function Accueil() {
             <span className="text-muted" style={{ fontSize: 14 }}>({presences.length})</span>
           </h2>
           {presencesQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-          {!presencesQuery.isLoading && presences.length === 0 && (
+          {!presencesQuery.isLoading && !presencesQuery.isError && presences.length === 0 && (
             <p className="text-muted">{t('presences.today.presences.empty', { defaultValue: 'Aucune présence saisie ce jour.' })}</p>
           )}
           {presences.length > 0 && (

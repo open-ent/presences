@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
-import { dateFr } from '../utils';
+import { dateFr, schoolYear } from '../utils';
+import { QueryErrors } from '../components/QueryErrors';
 
 /**
  * Punitions / sanctions — parité IHM AngularJS (CCTP 51C) : liste des punitions de la structure
@@ -15,8 +16,8 @@ export function Punitions() {
   const { user, init } = useEdificeClient();
   const structureId = user?.structures?.[0] ?? '';
 
-  const [start, setStart] = useState('2025-09-01');
-  const [end, setEnd] = useState('2026-07-31');
+  const [start, setStart] = useState(schoolYear().start);
+  const [end, setEnd] = useState(schoolYear().end);
 
   const punishmentsQuery = useQuery({
     queryKey: ['incidents', 'punishments', structureId, start, end],
@@ -42,6 +43,7 @@ export function Punitions() {
       <h1 className="mb-16">
         {t('incidents.punishments.title', { defaultValue: 'Punitions' })} <span className="text-muted" style={{ fontSize: 14 }}>({punishments.length})</span>
       </h1>
+      <QueryErrors queries={[punishmentsQuery, typesQuery]} />
 
       <div className="d-flex gap-12 align-items-end flex-wrap mb-16">
         <div>
@@ -55,7 +57,7 @@ export function Punitions() {
       </div>
 
       {punishmentsQuery.isLoading && <p>{t('incidents.loading', { defaultValue: 'Chargement…' })}</p>}
-      {!punishmentsQuery.isLoading && punishments.length === 0 && (
+      {!punishmentsQuery.isLoading && !punishmentsQuery.isError && punishments.length === 0 && (
         <p className="text-muted">{t('incidents.punishments.empty', { defaultValue: 'Aucune punition sur la période.' })}</p>
       )}
       {punishments.length > 0 && (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { alerteLabel, classeLabel, dateFr, eleveNom, heure, jour, nomComplet, ouiNon, seuil, visibleByLabel } from './utils';
+import { alerteLabel, classeLabel, dateFr, eleveNom, heure, jour, nomComplet, ouiNon, seuil, visibleByLabel, schoolYear, todayIso } from './utils';
 
 describe('visibleByLabel', () => {
   it('retire les masqués et trie par libellé', () => {
@@ -95,5 +95,18 @@ describe('eleveNom', () => {
     expect(eleveNom({ student: { name: 'X' } })).toBe('X');
     expect(eleveNom({ student_id: 'id-1' })).toBe('id-1');
     expect(eleveNom({})).toBe('—');
+  });
+});
+
+describe('dates par défaut', () => {
+  it('année scolaire : septembre à août, quel que soit le mois courant', () => {
+    expect(schoolYear(new Date(2026, 9, 22))).toEqual({ start: '2026-09-01', end: '2027-08-31' });
+    expect(schoolYear(new Date(2027, 0, 5))).toEqual({ start: '2026-09-01', end: '2027-08-31' });
+    expect(schoolYear(new Date(2026, 7, 31))).toEqual({ start: '2025-09-01', end: '2026-08-31' });
+    expect(schoolYear(new Date(2026, 8, 1))).toEqual({ start: '2026-09-01', end: '2027-08-31' });
+  });
+  it('jour courant au format ISO, sans décalage UTC', () => {
+    expect(todayIso(new Date(2026, 9, 22, 23, 59))).toBe('2026-10-22');
+    expect(todayIso(new Date(2026, 0, 5, 0, 1))).toBe('2026-01-05');
   });
 });

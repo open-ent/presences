@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
-import { dateFr, heure } from '../utils';
+import { dateFr, heure, schoolYear } from '../utils';
 
 /**
  * Régularisation des absences (parité IHM AngularJS) : liste des absences non régularisées
@@ -17,8 +17,8 @@ export function Regularisation() {
   const structureId = user?.structures?.[0] ?? '';
 
   // Fenêtre par défaut : année scolaire en cours (large, pour retrouver toutes les absences).
-  const [start, setStart] = useState('2025-09-01');
-  const [end, setEnd] = useState('2026-07-31');
+  const [start, setStart] = useState(schoolYear().start);
+  const [end, setEnd] = useState(schoolYear().end);
   const [checked, setChecked] = useState<Set<number>>(new Set());
 
   const eventsQuery = useQuery({
@@ -78,7 +78,7 @@ export function Regularisation() {
       {eventsQuery.isError && <div className="alert alert-warning" role="alert">{t('presences.error', { defaultValue: 'Une erreur est survenue.' })}</div>}
       {regularizeMut.isError && <div className="alert alert-warning" role="alert">{t('presences.regularise.error', { defaultValue: 'La régularisation a échoué.' })}</div>}
 
-      {!eventsQuery.isLoading && events.length === 0 && (
+      {!eventsQuery.isLoading && !eventsQuery.isError && events.length === 0 && (
         <p className="text-muted">{t('presences.regularisation.empty', { defaultValue: 'Aucune absence à régulariser sur la période.' })}</p>
       )}
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api, STAT_TYPES, StatType } from '../api';
-import { statCount, statLabel, statTotal } from '../utils';
+import { statCount, statLabel, statTotal, schoolYear } from '../utils';
 
 /**
  * Statistiques de présences — parité IHM AngularJS (CCTP 51C) : indicateur Global de la
@@ -16,8 +16,8 @@ export function Statistiques() {
   const { user, init } = useEdificeClient();
   const structureId = user?.structures?.[0] ?? '';
 
-  const [start, setStart] = useState('2025-09-01');
-  const [end, setEnd] = useState('2026-07-31');
+  const [start, setStart] = useState(schoolYear().start);
+  const [end, setEnd] = useState(schoolYear().end);
   const [types, setTypes] = useState<StatType[]>(['UNREGULARIZED', 'REGULARIZED', 'NO_REASON', 'LATENESS']);
   const [page, setPage] = useState(0);
 

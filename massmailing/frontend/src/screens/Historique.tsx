@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
-import { dateFr, typeLabel } from '../utils';
+import { dateFr, typeLabel, schoolYear } from '../utils';
 
 /**
  * Historique des publipostages — parité IHM AngularJS (CCTP 51C) : envois passés sur une
@@ -15,8 +15,8 @@ export function Historique() {
   const { user, init } = useEdificeClient();
   const structureId = user?.structures?.[0] ?? '';
 
-  const [start, setStart] = useState('2025-09-01');
-  const [end, setEnd] = useState('2026-07-31');
+  const [start, setStart] = useState(schoolYear().start);
+  const [end, setEnd] = useState(schoolYear().end);
 
   const query = useQuery({
     queryKey: ['mm', 'mailings', structureId, start, end],
@@ -54,7 +54,7 @@ export function Historique() {
 
       {query.isLoading && <p>{t('massmailing.loading', { defaultValue: 'Chargement…' })}</p>}
       {query.isError && <div className="alert alert-warning" role="alert">{t('massmailing.error', { defaultValue: 'Une erreur est survenue.' })}</div>}
-      {!query.isLoading && mailings.length === 0 && (
+      {!query.isLoading && !query.isError && mailings.length === 0 && (
         <p className="text-muted">{t('massmailing.history.empty', { defaultValue: 'Aucun publipostage sur la période.' })}</p>
       )}
       {mailings.length > 0 && (

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api, Course } from '../api';
-import { heure } from '../utils';
+import { heure, todayIso } from '../utils';
+import { QueryErrors } from '../components/QueryErrors';
 
 /**
  * Registre d'appel : pour une date, liste des cours (source EDT) → ouverture de l'appel d'un cours
@@ -17,7 +18,7 @@ export function Registre() {
   const structureId = user?.structures?.[0] ?? '';
 
   // Date par défaut : jour du cours de démonstration (données EDT provisionnées).
-  const [date, setDate] = useState('2025-10-14');
+  const [date, setDate] = useState(todayIso());
   const [openCourse, setOpenCourse] = useState<Course | null>(null);
   const [registerId, setRegisterId] = useState<number | null>(null);
   const [absents, setAbsents] = useState<Set<string>>(new Set());
@@ -77,6 +78,7 @@ export function Registre() {
   return (
     <div>
       <h1 className="mb-16">{t('presences.registre.title', { defaultValue: "Registre d'appel" })}</h1>
+      <QueryErrors queries={[coursesQuery, classesQuery, studentsQuery]} />
 
       <div className="mb-16" style={{ maxWidth: 240 }}>
         <label htmlFor="reg-date" className="form-label">{t('presences.registre.date', { defaultValue: 'Date' })}</label>
@@ -88,7 +90,7 @@ export function Registre() {
         <section className="card p-16" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 16 }} className="mb-12">{t('presences.registre.courses', { defaultValue: 'Cours du jour' })}</h2>
           {coursesQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-          {!coursesQuery.isLoading && courses.length === 0 && (
+          {!coursesQuery.isLoading && !coursesQuery.isError && courses.length === 0 && (
             <p className="text-muted mb-0">{t('presences.registre.nocourse', { defaultValue: 'Aucun cours ce jour.' })}</p>
           )}
           <ul className="list-unstyled mb-0">

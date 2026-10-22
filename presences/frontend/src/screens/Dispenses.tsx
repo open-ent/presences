@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
-import { dateFr } from '../utils';
+import { dateFr, schoolYear, todayIso } from '../utils';
+import { QueryErrors } from '../components/QueryErrors';
 
 /**
  * Dispenses (exemptions) — parité IHM AngularJS : liste des dispenses de la structure
@@ -17,8 +18,8 @@ export function Dispenses() {
   const qc = useQueryClient();
   const structureId = user?.structures?.[0] ?? '';
 
-  const [start, setStart] = useState('2025-09-01');
-  const [end, setEnd] = useState('2026-07-31');
+  const [start, setStart] = useState(schoolYear().start);
+  const [end, setEnd] = useState(schoolYear().end);
 
   const exemptionsQuery = useQuery({
     queryKey: ['pres', 'exemptions', structureId, start, end],
@@ -33,8 +34,8 @@ export function Dispenses() {
   // Formulaire de création
   const [studentId, setStudentId] = useState('');
   const [subjectId, setSubjectId] = useState('');
-  const [exStart, setExStart] = useState('2026-01-05');
-  const [exEnd, setExEnd] = useState('2026-06-30');
+  const [exStart, setExStart] = useState(todayIso());
+  const [exEnd, setExEnd] = useState(schoolYear().end);
   const [attendance, setAttendance] = useState(false);
   const [comment, setComment] = useState('');
   const [formError, setFormError] = useState('');
@@ -70,6 +71,7 @@ export function Dispenses() {
   return (
     <div>
       <h1 className="mb-16">{t('presences.exemptions.title', { defaultValue: 'Dispenses' })}</h1>
+      <QueryErrors queries={[exemptionsQuery, studentsQuery, subjectsQuery]} />
 
       {/* Création d'une dispense */}
       <section className="card p-16 mb-24">
@@ -130,7 +132,7 @@ export function Dispenses() {
         {t('presences.exemptions.list', { defaultValue: 'Dispenses' })} <span className="text-muted" style={{ fontSize: 14 }}>({exemptions.length})</span>
       </h2>
       {exemptionsQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
-      {!exemptionsQuery.isLoading && exemptions.length === 0 && (
+      {!exemptionsQuery.isLoading && !exemptionsQuery.isError && exemptions.length === 0 && (
         <p className="text-muted">{t('presences.exemptions.empty', { defaultValue: 'Aucune dispense sur la période.' })}</p>
       )}
       {exemptions.length > 0 && (

@@ -20,7 +20,7 @@ const period = (structureId: string, type: MassmailingType, startAt: number, sta
 export const getStatus = async (structureId: string, type: MassmailingType, startAt: number, startDate: string, endDate: string): Promise<number> => {
   const data = await json<Record<string, number>>(
     await fetch(`/massmailing/massmailings/status?${period(structureId, type, startAt, startDate, endDate)}`, base),
-  ).catch(() => ({}) as Record<string, number>);
+  );
   return data[type] ?? 0;
 };
 
@@ -42,7 +42,7 @@ export interface Prefetch {
 export const getPrefetch = async (mailingType: 'MAIL' | 'PDF' | 'SMS', structureId: string, type: MassmailingType, startAt: number, startDate: string, endDate: string): Promise<Prefetch> =>
   json<Prefetch>(
     await fetch(`/massmailing/massmailings/prefetch/${mailingType}?${period(structureId, type, startAt, startDate, endDate)}`, base),
-  ).catch(() => ({ type: mailingType, counts: { anomalies: 0, students: 0, massmailing: 0 }, students: [] }));
+  );
 
 /** Anomalie de publipostage (élève sans coordonnées valides pour un canal). */
 export interface Anomaly {
@@ -55,7 +55,7 @@ export interface Anomaly {
 
 /** Élèves en anomalie (GET /massmailings/anomalies). */
 export const getAnomalies = async (structureId: string, type: MassmailingType, startAt: number, startDate: string, endDate: string): Promise<Anomaly[]> =>
-  json<Anomaly[]>(await fetch(`/massmailing/massmailings/anomalies?${period(structureId, type, startAt, startDate, endDate)}`, base)).catch(() => []);
+  json<Anomaly[]>(await fetch(`/massmailing/massmailings/anomalies?${period(structureId, type, startAt, startDate, endDate)}`, base));
 
 /** Publipostage passé (historique). */
 export interface Mailing {
@@ -79,6 +79,6 @@ interface MailingsResponse {
 export const getMailings = async (structureId: string, start: string, end: string, page = 0): Promise<MailingsResponse> =>
   json<MailingsResponse>(
     await fetch(`/massmailing/mailings?structure=${structureId}&start=${start}&end=${end}&page=${page}`, base),
-  ).catch(() => ({ page: 0, page_count: 0, all: [] }));
+  );
 
 export const api = { getStatus, getPrefetch, getAnomalies, getMailings };

@@ -150,7 +150,7 @@ export const getStudents = async (structureId: string): Promise<Eleve[]> =>
 /** Absences d'un élève sur une période. */
 export const getStudentAbsences = async (structureId: string, studentId: string, start: string, end: string): Promise<Absence[]> => {
   const url = `/presences/absences?structureId=${structureId}&startDate=${start}&endDate=${end}&studentId=${studentId}`;
-  return json<{ all?: Absence[] } | Absence[]>(await fetch(url, base)).then((d) => (Array.isArray(d) ? d : d.all ?? [])).catch(() => []);
+  return json<{ all?: Absence[] } | Absence[]>(await fetch(url, base)).then((d) => (Array.isArray(d) ? d : d.all ?? []));
 };
 
 /** Crée une absence (POST /presences/absence). Dates « YYYY-MM-DD HH:mm:ss ». */
@@ -181,7 +181,7 @@ export interface Course {
 /** Cours d'une structure sur une journée (pour l'appel). */
 export const getCourses = async (structureId: string, date: string): Promise<Course[]> => {
   const url = `/presences/courses?structure=${structureId}&start=${date}&end=${date}`;
-  return json<Course[]>(await fetch(url, base)).catch(() => []);
+  return json<Course[]>(await fetch(url, base));
 };
 
 /** Classe de la structure (pour résoudre un nom de classe → identifiant). */
@@ -194,7 +194,7 @@ export interface Classe {
 export const getClasses = async (structureId: string): Promise<Classe[]> =>
   json<Array<{ id: string; name: string }>>(
     await fetch(`/viescolaire/classes?idEtablissement=${structureId}`, base),
-  ).then((arr) => (arr ?? []).map((c) => ({ id: c.id, name: c.name }))).catch(() => []);
+  ).then((arr) => (arr ?? []).map((c) => ({ id: c.id, name: c.name })));
 
 /** Élèves d'une classe (annuaire directory), triés par nom. */
 export const getClassStudents = async (classId: string): Promise<Eleve[]> =>
@@ -258,7 +258,7 @@ export interface AlertSummary {
 
 /** Synthèse des alertes (GET /presences/structures/:id/alerts/summary). */
 export const getAlertSummary = async (structureId: string): Promise<AlertSummary> =>
-  json<AlertSummary>(await fetch(`/presences/structures/${structureId}/alerts/summary`, base)).catch(() => ({}));
+  json<AlertSummary>(await fetch(`/presences/structures/${structureId}/alerts/summary`, base));
 
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
@@ -278,7 +278,7 @@ export interface ForgottenRegister {
 /** Appels oubliés du jour (GET /presences/structures/:id/registers/forgotten?startDate=&endDate=). */
 export const getForgottenRegisters = async (structureId: string, startDate: string, endDate: string): Promise<ForgottenRegister[]> => {
   const url = `/presences/structures/${structureId}/registers/forgotten?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
-  return json<ForgottenRegister[]>(await fetch(url, base)).then((d) => d ?? []).catch(() => []);
+  return json<ForgottenRegister[]>(await fetch(url, base)).then((d) => d ?? []);
 };
 
 /** Une déclaration d'absence saisie par un parent, à valider par la vie scolaire. */
@@ -301,7 +301,7 @@ export const getStatements = async (structureId: string, startAt: string, endAt:
   if (typeof isTreated === 'boolean') url += `&is_treated=${isTreated}`;
   return json<{ all?: Statement[] } | Statement[]>(await fetch(url, base))
     .then((d) => (Array.isArray(d) ? d : d?.all ?? []))
-    .catch(() => []);
+    ;
 };
 
 // ── Régularisation des absences (événements) ────────────────────────────────────
@@ -339,7 +339,7 @@ interface EventsResponse {
 export const getEvents = async (structureId: string, startDate: string, endDate: string, regularized?: boolean): Promise<EventItem[]> => {
   let url = `/presences/events?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&eventType=1&page=0`;
   if (typeof regularized === 'boolean') url += `&regularized=${regularized}`;
-  const data = await json<EventsResponse>(await fetch(url, base)).catch(() => ({ all: [] as EventsResponse['all'] }));
+  const data = await json<EventsResponse>(await fetch(url, base));
   const items: EventItem[] = [];
   for (const row of data.all ?? []) {
     const s = row.student;
@@ -408,7 +408,7 @@ interface ExemptionsResponse {
 /** Dispenses de la structure, aplaties (nom élève / classe / matière résolus). */
 export const getExemptions = async (structureId: string, startDate: string, endDate: string): Promise<Exemption[]> => {
   const url = `/presences/exemptions?structure_id=${structureId}&start_date=${startDate}&end_date=${endDate}&page=0`;
-  const data = await json<ExemptionsResponse>(await fetch(url, base)).catch(() => ({ values: [] as ExemptionsResponse['values'] }));
+  const data = await json<ExemptionsResponse>(await fetch(url, base));
   return (data.values ?? []).map((v) => {
     const st = v.student;
     return {
@@ -435,7 +435,7 @@ export interface Subject {
 export const getSubjects = async (structureId: string): Promise<Subject[]> =>
   json<Array<{ id: string; name: string }>>(await fetch(`/viescolaire/matieres?idEtablissement=${structureId}`, base))
     .then((arr) => arr.map((m) => ({ id: m.id, name: m.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })))
-    .catch(() => []);
+    ;
 
 /** Crée une dispense ponctuelle (POST /presences/exemptions). */
 export const createExemption = async (
@@ -467,7 +467,7 @@ export interface PresenceItem {
 
 /** Présences saisies sur une période (GET /presences/presences). */
 export const getPresences = async (structureId: string, startDate: string, endDate: string): Promise<PresenceItem[]> =>
-  json<PresenceItem[]>(await fetch(`/presences/presences?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}`, base)).catch(() => []);
+  json<PresenceItem[]>(await fetch(`/presences/presences?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}`, base));
 
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,

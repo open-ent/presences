@@ -54,7 +54,7 @@ export const getGlobalStats = async (structureId: string, start: string, end: st
       headers: mutHeaders(),
       body: JSON.stringify(body),
     }),
-  ).catch(() => ({ data: [] }));
+  );
 };
 
 export const api = { getGlobalStats };

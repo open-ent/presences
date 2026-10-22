@@ -62,7 +62,7 @@ interface IncidentsResponse {
 /** Incidents de la structure, aplatis (GET /incidents/incidents). */
 export const getIncidents = async (structureId: string, startDate: string, endDate: string): Promise<Incident[]> => {
   const url = `/incidents/incidents?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&page=0`;
-  const data = await json<IncidentsResponse>(await fetch(url, base)).catch(() => ({ all: [] as IncidentsResponse['all'] }));
+  const data = await json<IncidentsResponse>(await fetch(url, base));
   return (data.all ?? []).map((i) => ({
     id: i.id,
     date: i.date ?? '',
@@ -90,7 +90,7 @@ export interface RefItem {
 }
 
 const refList = async (url: string): Promise<RefItem[]> =>
-  json<RefItem[]>(await fetch(url, base)).then((l) => (l ?? []).filter((x) => !x.hidden)).catch(() => []);
+  json<RefItem[]>(await fetch(url, base)).then((l) => (l ?? []).filter((x) => !x.hidden));
 
 export const getIncidentTypes = (structureId: string) => refList(`/incidents/types?structureId=${structureId}`);
 export const getPlaces = (structureId: string) => refList(`/incidents/places?structureId=${structureId}`);
@@ -110,7 +110,7 @@ export interface Student {
 export const getStudents = async (structureId: string): Promise<Student[]> => {
   const users = await json<Array<{ id: string; displayName?: string; type?: string[] | string; classesNames?: string[] }>>(
     await fetch(`/directory/structure/${structureId}/users`, base),
-  ).catch(() => []);
+  );
   return (users ?? [])
     .filter((u) => (Array.isArray(u.type) ? u.type.includes('Student') : u.type === 'Student'))
     .map((u) => ({ id: u.id, displayName: u.displayName ?? '', classe: u.classesNames?.[0] }));
@@ -170,7 +170,7 @@ interface PunishmentsResponse {
 /** Punitions/sanctions de la structure (GET /incidents/punishments). */
 export const getPunishments = async (structureId: string, startAt: string, endAt: string): Promise<Punishment[]> => {
   const url = `/incidents/punishments?structure_id=${structureId}&start_at=${startAt}&end_at=${endAt}`;
-  const data = await json<PunishmentsResponse>(await fetch(url, base)).catch(() => ({ all: [] as PunishmentsResponse['all'] }));
+  const data = await json<PunishmentsResponse>(await fetch(url, base));
   return (data.all ?? []).map((p) => ({
     id: p.id,
     studentName: p.student?.displayName ?? '',
@@ -190,7 +190,7 @@ export interface PunishmentType {
 
 /** Types de punition/sanction de la structure (GET /incidents/punishments/type). */
 export const getPunishmentTypes = async (structureId: string): Promise<PunishmentType[]> =>
-  json<PunishmentType[]>(await fetch(`/incidents/punishments/type?structureId=${structureId}`, base)).catch(() => []);
+  json<PunishmentType[]>(await fetch(`/incidents/punishments/type?structureId=${structureId}`, base));
 
 /** Marque un incident comme traité / non traité (PUT /incidents/incidents/:id).
  *  Le backend valide le body contre le schéma COMPLET : renvoyer l'incident entier,

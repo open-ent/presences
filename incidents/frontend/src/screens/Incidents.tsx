@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
-import { dateFr, heure, ouiNon } from '../utils';
+import { dateFr, heure, ouiNon, schoolYear } from '../utils';
 
 /**
  * Incidents — parité IHM AngularJS (CCTP 51C) : liste des incidents de la structure sur une
@@ -18,8 +18,8 @@ export function Incidents() {
   const structureId = user?.structures?.[0] ?? '';
   const ownerId = (user as { userId?: string } | undefined)?.userId ?? '';
 
-  const [start, setStart] = useState('2025-09-01');
-  const [end, setEnd] = useState('2026-07-31');
+  const [start, setStart] = useState(schoolYear().start);
+  const [end, setEnd] = useState(schoolYear().end);
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -106,7 +106,7 @@ export function Incidents() {
 
       {incidentsQuery.isLoading && <p>{t('incidents.loading', { defaultValue: 'Chargement…' })}</p>}
       {incidentsQuery.isError && <div className="alert alert-warning" role="alert">{t('incidents.error', { defaultValue: 'Une erreur est survenue.' })}</div>}
-      {!incidentsQuery.isLoading && incidents.length === 0 && (
+      {!incidentsQuery.isLoading && !incidentsQuery.isError && incidents.length === 0 && (
         <p className="text-muted">{t('incidents.empty', { defaultValue: 'Aucun incident sur la période.' })}</p>
       )}
       {incidents.length > 0 && (
