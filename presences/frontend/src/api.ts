@@ -354,6 +354,8 @@ export interface EventItem {
   reason?: string | null;
   reason_id?: number | null;
   counsellor_regularisation?: boolean;
+  /** 1 absence, 2 retard, 3 départ. */
+  typeId?: number;
 }
 
 /** Structure imbriquée renvoyée par GET /presences/events. */
@@ -383,10 +385,8 @@ export interface Paged<T> {
 
 export const PAGE_SIZE = 20;
 
-export const getEventsPage = async (structureId: string, startDate: string, endDate: string, regularized?: boolean, page = 0): Promise<Paged<EventItem>> => {
-  let url = `/presences/events?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&eventType=1&page=${page}`;
-  if (typeof regularized === 'boolean') url += `&regularized=${regularized}`;
-  const data = await json<EventsResponse>(await fetch(url, base));
+/** Aplatit la réponse de GET /events ; `typeIds` retient les types voulus. */
+const flattenEvents = (data: EventsResponse, typeIds: number[]): EventItem[] => {
   const items: EventItem[] = [];
   for (const row of data.all ?? []) {
     const s = row.student;
@@ -394,7 +394,7 @@ export const getEventsPage = async (structureId: string, startDate: string, endD
     for (const day of s.day_history ?? []) {
       for (const ev of day.events ?? []) {
         const e = ev as Record<string, unknown>;
-        if (e.type_id !== 1) continue; // absences uniquement
+        if (!typeIds.includes(Number(e.type_id))) continue;
         items.push({
           id: Number(e.id),
           studentId: s.id ?? '',
@@ -406,11 +406,36 @@ export const getEventsPage = async (structureId: string, startDate: string, endD
           reason: (e.reason as string | null) ?? null,
           reason_id: (e.reason_id as number | null) ?? null,
           counsellor_regularisation: Boolean(e.counsellor_regularisation),
+          typeId: Number(e.type_id),
         });
       }
     }
   }
-  return { items, page, hasNext: (data.all ?? []).length >= PAGE_SIZE };
+  return items;
+};
+
+export const getEventsPage = async (structureId: string, startDate: string, endDate: string, regularized?: boolean, page = 0): Promise<Paged<EventItem>> => {
+  let url = `/presences/events?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&eventType=1&page=${page}`;
+  if (typeof regularized === 'boolean') url += `&regularized=${regularized}`;
+  const data = await json<EventsResponse>(await fetch(url, base));
+  return { items: flattenEvents(data, [1]), page, hasNext: (data.all ?? []).length >= PAGE_SIZE };
+};
+
+/** Liste filtrée (types, régularisation, motifs) : `params` vient de `filterParams` (eventFilters.ts). */
+export const getEventsFiltered = async (params: string, typeIds: number[], page = 0): Promise<Paged<EventItem>> => {
+  const data = await json<EventsResponse>(await fetch(`/presences/events?${params}&page=${page}`, base));
+  return { items: flattenEvents(data, typeIds), page, hasNext: (data.all ?? []).length >= PAGE_SIZE };
+};
+
+/** Change le motif d'événements d'absence ou de retard (PUT /presences/events/reason) ; null = sans motif. */
+export const changeEventsReason = async (ids: number[], reasonId: number | null): Promise<void> => {
+  const res = await fetch(`/presences/events/reason`, {
+    ...base,
+    method: 'PUT',
+    headers: mutHeaders(),
+    body: JSON.stringify({ events: ids.map((id) => ({ id })), reasonId }),
+  });
+  if (!res.ok) throw new Error(String(res.status));
 };
 
 /** Régularise (ou dé-régularise) des événements d'absence (PUT /presences/events/regularized). */
@@ -580,7 +605,7 @@ export const api = {
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
   getAlertSummary, getForgottenRegisters, getStatements,
-  getEvents, getEventsPage, regularizeEvents,
+  getEvents, getEventsPage, getEventsFiltered, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,
   getPresences, getStudentEvents, getChildren,
 };
