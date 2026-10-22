@@ -120,6 +120,16 @@ export function Registre() {
             </p>
 
             {openMut.isPending && <p>{t('presences.registre.opening', { defaultValue: "Ouverture de l'appel…" })}</p>}
+            {openMut.isError && (
+              <div className="alert alert-danger" role="alert">
+                {t('presences.registre.open.error', { defaultValue: "L'appel n'a pas pu être ouvert : rien n'a été enregistré. Réessayez." })}
+              </div>
+            )}
+            {validateMut.isError && (
+              <div className="alert alert-danger" role="alert">
+                {t('presences.registre.save.error', { defaultValue: "Les absences n'ont pas pu être enregistrées (certaines ont peut-être été prises en compte). Réessayez." })}
+              </div>
+            )}
             {studentsQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
 
             {registerId != null && students.length > 0 && (

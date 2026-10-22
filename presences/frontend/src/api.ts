@@ -336,8 +336,18 @@ interface EventsResponse {
  * Événements d'absence d'une structure, **aplatis** (un item par événement).
  * `regularized` filtre régularisés/non régularisés (undefined = tous).
  */
-export const getEvents = async (structureId: string, startDate: string, endDate: string, regularized?: boolean): Promise<EventItem[]> => {
-  let url = `/presences/events?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&eventType=1&page=0`;
+/** Une page de résultats : le serveur en sert 20 à la fois. */
+export interface Paged<T> {
+  items: T[];
+  page: number;
+  /** Une page suivante existe (la page courante est pleine). */
+  hasNext: boolean;
+}
+
+export const PAGE_SIZE = 20;
+
+export const getEventsPage = async (structureId: string, startDate: string, endDate: string, regularized?: boolean, page = 0): Promise<Paged<EventItem>> => {
+  let url = `/presences/events?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&eventType=1&page=${page}`;
   if (typeof regularized === 'boolean') url += `&regularized=${regularized}`;
   const data = await json<EventsResponse>(await fetch(url, base));
   const items: EventItem[] = [];
@@ -363,7 +373,7 @@ export const getEvents = async (structureId: string, startDate: string, endDate:
       }
     }
   }
-  return items;
+  return { items, page, hasNext: (data.all ?? []).length >= PAGE_SIZE };
 };
 
 /** Régularise (ou dé-régularise) des événements d'absence (PUT /presences/events/regularized). */
@@ -406,10 +416,10 @@ interface ExemptionsResponse {
 }
 
 /** Dispenses de la structure, aplaties (nom élève / classe / matière résolus). */
-export const getExemptions = async (structureId: string, startDate: string, endDate: string): Promise<Exemption[]> => {
-  const url = `/presences/exemptions?structure_id=${structureId}&start_date=${startDate}&end_date=${endDate}&page=0`;
+export const getExemptions = async (structureId: string, startDate: string, endDate: string, page = 0): Promise<Paged<Exemption>> => {
+  const url = `/presences/exemptions?structure_id=${structureId}&start_date=${startDate}&end_date=${endDate}&page=${page}`;
   const data = await json<ExemptionsResponse>(await fetch(url, base));
-  return (data.values ?? []).map((v) => {
+  const items = (data.values ?? []).map((v) => {
     const st = v.student;
     return {
       id: v.exemption_id,
@@ -423,6 +433,21 @@ export const getExemptions = async (structureId: string, startDate: string, endD
       type: v.type ?? '',
     };
   });
+  return { items, page, hasNext: (data.values ?? []).length >= PAGE_SIZE };
+};
+
+/**
+ * Tous les événements d'absence de la période (toutes les pages, plafonné à 25 pages) : pour les compteurs, qui ne
+ * doivent pas se limiter aux 20 premières lignes.
+ */
+export const getEvents = async (structureId: string, startDate: string, endDate: string, regularized?: boolean): Promise<EventItem[]> => {
+  const all: EventItem[] = [];
+  for (let page = 0; page < 25; page++) {
+    const res = await getEventsPage(structureId, startDate, endDate, regularized, page);
+    all.push(...res.items);
+    if (!res.hasNext) break;
+  }
+  return all;
 };
 
 /** Une matière (pour le sélecteur de dispense). */
@@ -477,7 +502,7 @@ export const api = {
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent,
   getAlertSummary, getForgottenRegisters, getStatements,
-  getEvents, regularizeEvents,
+  getEvents, getEventsPage, regularizeEvents,
   getExemptions, createExemption, getSubjects,
   getPresences,
 };

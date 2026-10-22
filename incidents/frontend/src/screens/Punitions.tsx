@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { dateFr, schoolYear } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { Pager } from '../components/Pager';
 
 /**
  * Punitions / sanctions — parité IHM AngularJS (CCTP 51C) : liste des punitions de la structure
@@ -18,15 +19,16 @@ export function Punitions() {
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);
+  const [page, setPage] = useState(0);
 
   const punishmentsQuery = useQuery({
-    queryKey: ['incidents', 'punishments', structureId, start, end],
-    queryFn: () => api.getPunishments(structureId, start, end),
+    queryKey: ['incidents', 'punishments', structureId, start, end, page],
+    queryFn: () => api.getPunishments(structureId, start, end, page),
     enabled: !!structureId,
   });
   const typesQuery = useQuery({ queryKey: ['incidents', 'punishment-types', structureId], queryFn: () => api.getPunishmentTypes(structureId), enabled: !!structureId });
 
-  const punishments = punishmentsQuery.data ?? [];
+  const punishments = punishmentsQuery.data?.items ?? [];
   const types = typesQuery.data ?? [];
 
   if (init && !structureId) {
@@ -48,11 +50,11 @@ export function Punitions() {
       <div className="d-flex gap-12 align-items-end flex-wrap mb-16">
         <div>
           <label htmlFor="pun-start" className="form-label">{t('incidents.from', { defaultValue: 'Du' })}</label>
-          <input id="pun-start" type="date" className="form-control" value={start} onChange={(e) => setStart(e.target.value)} />
+          <input id="pun-start" type="date" className="form-control" value={start} onChange={(e) => { setStart(e.target.value); setPage(0); }} />
         </div>
         <div>
           <label htmlFor="pun-end" className="form-label">{t('incidents.to', { defaultValue: 'Au' })}</label>
-          <input id="pun-end" type="date" className="form-control" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <input id="pun-end" type="date" className="form-control" value={end} onChange={(e) => { setEnd(e.target.value); setPage(0); }} />
         </div>
       </div>
 
@@ -94,6 +96,7 @@ export function Punitions() {
           </div>
         </>
       )}
+      <Pager page={page} hasNext={!!punishmentsQuery.data?.hasNext} onChange={setPage} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
+import { Pager } from '../components/Pager';
 import { dateFr, heure, schoolYear } from '../utils';
 
 /**
@@ -20,13 +21,14 @@ export function Regularisation() {
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);
   const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(0);
 
   const eventsQuery = useQuery({
-    queryKey: ['pres', 'events', structureId, start, end],
-    queryFn: () => api.getEvents(structureId, start, end, false),
+    queryKey: ['pres', 'events', structureId, start, end, page],
+    queryFn: () => api.getEventsPage(structureId, start, end, false, page),
     enabled: !!structureId,
   });
-  const events = eventsQuery.data ?? [];
+  const events = eventsQuery.data?.items ?? [];
 
   const allChecked = events.length > 0 && events.every((e) => checked.has(e.id));
   const toggle = (id: number) => setChecked((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -58,11 +60,11 @@ export function Regularisation() {
       <div className="d-flex gap-12 align-items-end flex-wrap mb-16">
         <div>
           <label htmlFor="reg-start" className="form-label">{t('presences.from', { defaultValue: 'Du' })}</label>
-          <input id="reg-start" type="date" className="form-control" value={start} onChange={(e) => setStart(e.target.value)} />
+          <input id="reg-start" type="date" className="form-control" value={start} onChange={(e) => { setStart(e.target.value); setPage(0); }} />
         </div>
         <div>
           <label htmlFor="reg-end" className="form-label">{t('presences.to', { defaultValue: 'Au' })}</label>
-          <input id="reg-end" type="date" className="form-control" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <input id="reg-end" type="date" className="form-control" value={end} onChange={(e) => { setEnd(e.target.value); setPage(0); }} />
         </div>
         <button
           type="button"
@@ -112,6 +114,7 @@ export function Regularisation() {
           </table>
         </div>
       )}
+      <Pager page={page} hasNext={!!eventsQuery.data?.hasNext} onChange={(p) => { setPage(p); setChecked(new Set()); }} />
     </div>
   );
 }

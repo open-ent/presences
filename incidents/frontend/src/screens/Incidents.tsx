@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { dateFr, heure, ouiNon, schoolYear } from '../utils';
+import { Pager } from '../components/Pager';
+import { QueryErrors } from '../components/QueryErrors';
 
 /**
  * Incidents — parité IHM AngularJS (CCTP 51C) : liste des incidents de la structure sur une
@@ -22,10 +24,11 @@ export function Incidents() {
   const [end, setEnd] = useState(schoolYear().end);
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  const [page, setPage] = useState(0);
 
   const incidentsQuery = useQuery({
-    queryKey: ['incidents', 'list', structureId, start, end],
-    queryFn: () => api.getIncidents(structureId, start, end),
+    queryKey: ['incidents', 'list', structureId, start, end, page],
+    queryFn: () => api.getIncidents(structureId, start, end, page),
     enabled: !!structureId,
   });
   const invalidate = () => qc.invalidateQueries({ queryKey: ['incidents', 'list'] });
@@ -33,7 +36,7 @@ export function Incidents() {
   // Recherche (parité Angular « Rechercher un élève / une classe ou un groupe ») :
   // filtre client sur protagonistes, type, lieu et description.
   const norm = (s: string) => s.toLocaleLowerCase('fr-FR');
-  const incidents = (incidentsQuery.data ?? []).filter(
+  const incidents = (incidentsQuery.data?.items ?? []).filter(
     (i) => !search.trim() || norm(`${i.protagonistes} ${i.typeLabel} ${i.placeLabel} ${i.description}`).includes(norm(search.trim())),
   );
 
@@ -85,11 +88,11 @@ export function Incidents() {
       <div className="d-flex gap-12 align-items-end flex-wrap mb-16">
         <div>
           <label htmlFor="inc-start" className="form-label">{t('incidents.from', { defaultValue: 'Du' })}</label>
-          <input id="inc-start" type="date" className="form-control" value={start} onChange={(e) => setStart(e.target.value)} />
+          <input id="inc-start" type="date" className="form-control" value={start} onChange={(e) => { setStart(e.target.value); setPage(0); }} />
         </div>
         <div>
           <label htmlFor="inc-end" className="form-label">{t('incidents.to', { defaultValue: 'Au' })}</label>
-          <input id="inc-end" type="date" className="form-control" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <input id="inc-end" type="date" className="form-control" value={end} onChange={(e) => { setEnd(e.target.value); setPage(0); }} />
         </div>
         <div style={{ minWidth: 280 }}>
           <label htmlFor="inc-search" className="form-label">{t('incidents.search', { defaultValue: 'Rechercher un élève, une classe…' })}</label>
@@ -154,6 +157,7 @@ export function Incidents() {
           </table>
         </div>
       )}
+      <Pager page={page} hasNext={!!incidentsQuery.data?.hasNext} onChange={setPage} />
       {processedMut.isError && (
         <div className="alert alert-warning mt-8" role="alert">
           {t('incidents.processed.error', { defaultValue: 'La mise à jour du statut a échoué (droit requis).' })}
@@ -225,6 +229,7 @@ function IncidentForm({ structureId, ownerId, onDone, onCancel }: { structureId:
   return (
     <form className="card p-16 mb-16" onSubmit={onSubmit}>
       <h2 style={{ fontSize: 18 }} className="mb-12">{t('incidents.new', { defaultValue: 'Saisir un incident' })}</h2>
+      <QueryErrors queries={[typesQuery, placesQuery, partnersQuery, seriousnessQuery, protaTypesQuery, studentsQuery]} />
       <div className="d-flex gap-12 flex-wrap mb-12">
         <div>
           <label htmlFor="new-inc-date" className="form-label">{t('incidents.date', { defaultValue: 'Date' })}</label>

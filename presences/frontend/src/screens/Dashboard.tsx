@@ -106,6 +106,11 @@ export function Dashboard() {
     <div>
       <h1 className="mb-16">{t('presences.title', { defaultValue: 'Présences' })}</h1>
       <QueryErrors queries={[reasonsQuery, actionsQuery, disciplinesQuery, settingsQuery]} />
+      {(deleteReasonMut.isError || deleteActionMut.isError || deleteDisciplineMut.isError) && (
+        <div className="alert alert-danger" role="alert">
+          {t('presences.delete.error', { defaultValue: "La suppression a échoué : l'élément est conservé." })}
+        </div>
+      )}
       <p className="text-muted mb-16">
         {t('presences.dashboard.intro', { defaultValue: "Paramétrage de la présence pour l'établissement." })}
       </p>

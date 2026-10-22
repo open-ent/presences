@@ -60,10 +60,20 @@ interface IncidentsResponse {
 }
 
 /** Incidents de la structure, aplatis (GET /incidents/incidents). */
-export const getIncidents = async (structureId: string, startDate: string, endDate: string): Promise<Incident[]> => {
-  const url = `/incidents/incidents?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&page=0`;
+/** Une page de résultats : le serveur en sert 20 à la fois. */
+export interface Paged<T> {
+  items: T[];
+  page: number;
+  /** Une page suivante existe (la page courante est pleine). */
+  hasNext: boolean;
+}
+
+export const PAGE_SIZE = 20;
+
+export const getIncidents = async (structureId: string, startDate: string, endDate: string, page = 0): Promise<Paged<Incident>> => {
+  const url = `/incidents/incidents?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}&page=${page}`;
   const data = await json<IncidentsResponse>(await fetch(url, base));
-  return (data.all ?? []).map((i) => ({
+  const items = (data.all ?? []).map((i) => ({
     id: i.id,
     date: i.date ?? '',
     description: i.description ?? '',
@@ -75,6 +85,7 @@ export const getIncidents = async (structureId: string, startDate: string, endDa
     protagonistes: protagonistesLabel(i.protagonists ?? []),
     raw: i,
   }));
+  return { items, page, hasNext: (data.all ?? []).length >= PAGE_SIZE };
 };
 
 /** URL de l'export CSV des incidents (GET /incidents/incidents/export — téléchargement direct). */
@@ -168,16 +179,17 @@ interface PunishmentsResponse {
 }
 
 /** Punitions/sanctions de la structure (GET /incidents/punishments). */
-export const getPunishments = async (structureId: string, startAt: string, endAt: string): Promise<Punishment[]> => {
-  const url = `/incidents/punishments?structure_id=${structureId}&start_at=${startAt}&end_at=${endAt}`;
+export const getPunishments = async (structureId: string, startAt: string, endAt: string, page = 0): Promise<Paged<Punishment>> => {
+  const url = `/incidents/punishments?structure_id=${structureId}&start_at=${startAt}&end_at=${endAt}&page=${page}`;
   const data = await json<PunishmentsResponse>(await fetch(url, base));
-  return (data.all ?? []).map((p) => ({
+  const items = (data.all ?? []).map((p) => ({
     id: p.id,
     studentName: p.student?.displayName ?? '',
     typeLabel: p.type?.label ?? '',
     description: p.fields?.description ?? '',
     createdAt: p.created_at ?? '',
   }));
+  return { items, page, hasNext: (data.all ?? []).length >= PAGE_SIZE };
 };
 
 // ── Types de sanction (référentiel, pour information) ─────────────────────────────

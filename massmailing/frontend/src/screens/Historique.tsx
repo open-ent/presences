@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { dateFr, typeLabel, schoolYear } from '../utils';
+import { Pager } from '../components/Pager';
 
 /**
  * Historique des publipostages — parité IHM AngularJS (CCTP 51C) : envois passés sur une
@@ -17,10 +18,11 @@ export function Historique() {
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);
+  const [page, setPage] = useState(0);
 
   const query = useQuery({
-    queryKey: ['mm', 'mailings', structureId, start, end],
-    queryFn: () => api.getMailings(structureId, start, end, 0),
+    queryKey: ['mm', 'mailings', structureId, start, end, page],
+    queryFn: () => api.getMailings(structureId, start, end, page),
     enabled: !!structureId,
   });
   const mailings = query.data?.all ?? [];
@@ -44,11 +46,11 @@ export function Historique() {
       <div className="d-flex gap-12 align-items-end flex-wrap mb-16">
         <div>
           <label htmlFor="hist-start" className="form-label">{t('massmailing.from', { defaultValue: 'Du' })}</label>
-          <input id="hist-start" type="date" className="form-control" value={start} onChange={(e) => setStart(e.target.value)} />
+          <input id="hist-start" type="date" className="form-control" value={start} onChange={(e) => { setStart(e.target.value); setPage(0); }} />
         </div>
         <div>
           <label htmlFor="hist-end" className="form-label">{t('massmailing.to', { defaultValue: 'Au' })}</label>
-          <input id="hist-end" type="date" className="form-control" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <input id="hist-end" type="date" className="form-control" value={end} onChange={(e) => { setEnd(e.target.value); setPage(0); }} />
         </div>
       </div>
 
@@ -83,6 +85,7 @@ export function Historique() {
           </table>
         </div>
       )}
+      <Pager page={page} hasNext={(query.data?.all ?? []).length >= 20} onChange={setPage} />
     </div>
   );
 }

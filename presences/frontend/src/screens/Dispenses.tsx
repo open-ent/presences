@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
+import { Pager } from '../components/Pager';
 import { dateFr, schoolYear, todayIso } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
 
@@ -20,16 +21,17 @@ export function Dispenses() {
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);
+  const [page, setPage] = useState(0);
 
   const exemptionsQuery = useQuery({
-    queryKey: ['pres', 'exemptions', structureId, start, end],
-    queryFn: () => api.getExemptions(structureId, start, end),
+    queryKey: ['pres', 'exemptions', structureId, start, end, page],
+    queryFn: () => api.getExemptions(structureId, start, end, page),
     enabled: !!structureId,
   });
   const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
   const subjectsQuery = useQuery({ queryKey: ['pres', 'subjects', structureId], queryFn: () => api.getSubjects(structureId), enabled: !!structureId });
 
-  const exemptions = exemptionsQuery.data ?? [];
+  const exemptions = exemptionsQuery.data?.items ?? [];
 
   // Formulaire de création
   const [studentId, setStudentId] = useState('');
@@ -120,16 +122,16 @@ export function Dispenses() {
       <div className="d-flex gap-12 align-items-end flex-wrap mb-16">
         <div>
           <label htmlFor="ex-flt-start" className="form-label">{t('presences.from', { defaultValue: 'Du' })}</label>
-          <input id="ex-flt-start" type="date" className="form-control" value={start} onChange={(e) => setStart(e.target.value)} />
+          <input id="ex-flt-start" type="date" className="form-control" value={start} onChange={(e) => { setStart(e.target.value); setPage(0); }} />
         </div>
         <div>
           <label htmlFor="ex-flt-end" className="form-label">{t('presences.to', { defaultValue: 'Au' })}</label>
-          <input id="ex-flt-end" type="date" className="form-control" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <input id="ex-flt-end" type="date" className="form-control" value={end} onChange={(e) => { setEnd(e.target.value); setPage(0); }} />
         </div>
       </div>
 
       <h2 style={{ fontSize: 18 }} className="mb-12">
-        {t('presences.exemptions.list', { defaultValue: 'Dispenses' })} <span className="text-muted" style={{ fontSize: 14 }}>({exemptions.length})</span>
+        {t('presences.exemptions.list', { defaultValue: 'Dispenses' })} <span className="text-muted" style={{ fontSize: 14 }}>({exemptions.length}{exemptionsQuery.data?.hasNext || page > 0 ? '…' : ''})</span>
       </h2>
       {exemptionsQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
       {!exemptionsQuery.isLoading && !exemptionsQuery.isError && exemptions.length === 0 && (
@@ -165,6 +167,7 @@ export function Dispenses() {
           </table>
         </div>
       )}
+      <Pager page={page} hasNext={!!exemptionsQuery.data?.hasNext} onChange={setPage} />
     </div>
   );
 }
