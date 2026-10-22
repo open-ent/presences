@@ -2,6 +2,7 @@
 // Incrément 1 : lecture seule du paramétrage de la structure (motifs, actions, dispositifs, réglages).
 
 import { nomComplet } from './utils';
+import type { RegisterDetail } from './register';
 
 /** Motif d'absence de la structure. */
 export interface Reason {
@@ -176,11 +177,15 @@ export interface Course {
   startDate?: string;
   endDate?: string;
   register_id?: number | null;
+  register_state_id?: number | null;
+  teachers?: Array<{ id: string; displayName?: string }>;
 }
 
 /** Cours d'une structure sur une journée (pour l'appel). */
-export const getCourses = async (structureId: string, date: string): Promise<Course[]> => {
-  const url = `/presences/courses?structure=${structureId}&start=${date}&end=${date}`;
+export const getCourses = async (structureId: string, date: string, teacherId?: string): Promise<Course[]> => {
+  let url = `/presences/courses?structure=${structureId}&start=${date}&end=${date}`;
+  // Enseignant : ses cours seulement (le serveur lit `teacher`, comme l'AngularJS).
+  if (teacherId) url += `&teacher=${encodeURIComponent(teacherId)}`;
   return json<Course[]>(await fetch(url, base));
 };
 
@@ -207,7 +212,7 @@ export const getClassStudents = async (classId: string): Promise<Eleve[]> =>
   );
 
 /** Ouvre (crée) le registre d'un cours. Renvoie l'id du registre. */
-export const createRegister = async (course: Course, structureId: string): Promise<{ id: number }> =>
+export const createRegister = async (course: Course, structureId: string, teacherIds: string[] = []): Promise<{ id: number }> =>
   json<{ id: number }>(
     await fetch(`/presences/registers`, {
       ...base,
@@ -221,30 +226,62 @@ export const createRegister = async (course: Course, structureId: string): Promi
         subject_id: course.subjectId ?? '',
         groups: course.groups ?? [],
         classes: course.classes ?? [],
-        teacherIds: [],
+        teacherIds,
         split_slot: false,
       }),
     }),
   );
 
-/** Enregistre un événement d'appel (type_id : 1 = absence). */
-export const createEvent = async (registerId: number, studentId: string, startDate: string, endDate: string, typeId = 1): Promise<void> => {
-  const res = await fetch(`/presences/events`, {
-    ...base,
-    method: 'POST',
-    headers: mutHeaders(),
-    body: JSON.stringify({
-      register_id: registerId,
-      type_id: typeId,
-      student_id: studentId,
-      start_date: startDate,
-      end_date: endDate,
-      counsellor_input: true,
-      counsellor_regularisation: false,
-      reason_id: null,
-    }),
-  });
+/** Corps d'un événement d'appel : `typeId` 1 absence, 2 retard, 3 départ, 4 remarque. */
+export interface EventBody {
+  registerId: number;
+  studentId: string;
+  typeId: number;
+  startDate: string;
+  endDate: string;
+  comment?: string;
+  /** Saisi par le personnel de vie scolaire (et non par l'enseignant). */
+  counsellorInput?: boolean;
+}
+
+const eventPayload = (b: EventBody) => ({
+  register_id: b.registerId,
+  type_id: b.typeId,
+  student_id: b.studentId,
+  start_date: b.startDate,
+  end_date: b.endDate,
+  counsellor_input: b.counsellorInput ?? true,
+  counsellor_regularisation: false,
+  reason_id: null,
+  ...(b.comment !== undefined ? { comment: b.comment } : {}),
+});
+
+/** Enregistre un événement d'appel et renvoie son identifiant. */
+export const createEvent = async (body: EventBody): Promise<number> => {
+  const res = await fetch(`/presences/events`, { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify(eventPayload(body)) });
   if (!res.ok && res.status !== 201) throw new Error(String(res.status));
+  const created = (await res.json().catch(() => ({}))) as { id?: number };
+  return Number(created.id ?? 0);
+};
+
+/** Modifie un événement d'appel (heure d'un retard ou d'un départ, texte d'une remarque). */
+export const updateEvent = async (id: number, body: EventBody): Promise<void> => {
+  const res = await fetch(`/presences/events/${id}`, { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify(eventPayload(body)) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+export const deleteEvent = async (id: number): Promise<void> => {
+  const res = await fetch(`/presences/events/${id}`, { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Registre complet : élèves du cours avec leurs événements, dispenses et absents du cours précédent. */
+export const getRegister = async (id: number): Promise<RegisterDetail> => json<RegisterDetail>(await fetch(`/presences/registers/${id}`, base));
+
+/** Avancement du registre : 1 à faire, 2 en cours (première saisie), 3 terminé (« Valider l'appel »). */
+export const setRegisterStatus = async (id: number, stateId: number): Promise<void> => {
+  const res = await fetch(`/presences/registers/${id}/status`, { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify({ state_id: stateId }) });
+  if (!res.ok) throw new Error(String(res.status));
 };
 
 // ── Tableau de bord d'accueil (alertes / appels oubliés / déclarations parents) ─
@@ -500,7 +537,7 @@ export const api = {
   createAction, deleteAction,
   createDiscipline, deleteDiscipline,
   getStudents, getStudentAbsences, createAbsence,
-  getCourses, getClasses, getClassStudents, createRegister, createEvent,
+  getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
   getAlertSummary, getForgottenRegisters, getStatements,
   getEvents, getEventsPage, regularizeEvents,
   getExemptions, createExemption, getSubjects,
