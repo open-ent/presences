@@ -34,6 +34,7 @@ export function Root() {
               {rights.readRegister && tab('/registre', "Registre d'appel")}
               {rights.absences && tab('/absences', 'Absences')}
               {rights.readEvent && tab('/regularisation', 'Régularisation')}
+              {rights.widgetAlerts && tab('/alertes', 'Alertes')}
               {rights.statements && tab('/declarations', "Déclarations d'absence")}
               {rights.readExemption && tab('/dispenses', 'Dispenses')}
               {rights.absences && tab('/parametrage', 'Paramétrage')}

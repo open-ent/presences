@@ -297,6 +297,22 @@ export interface AlertSummary {
 export const getAlertSummary = async (structureId: string): Promise<AlertSummary> =>
   json<AlertSummary>(await fetch(`/presences/structures/${structureId}/alerts/summary`, base));
 
+import type { StudentAlert } from './alerts';
+
+export interface AlertsPage { page: number; page_count: number; all: StudentAlert[] }
+
+/** Alertes par élève (GET /presences/structures/:id/alerts) ; `params` vient de `alertParams`, page comprise. */
+export const getAlerts = async (structureId: string, params: string): Promise<AlertsPage> => {
+  const d = await json<Partial<AlertsPage> | null>(await fetch(`/presences/structures/${structureId}/alerts${params}`, base));
+  return { page: d?.page ?? 0, page_count: d?.page_count ?? 1, all: d?.all ?? [] };
+};
+
+/** Remet à zéro les alertes choisies (DELETE /presences/structures/:id/alerts). */
+export const resetAlerts = async (structureId: string, body: unknown): Promise<void> => {
+  const res = await fetch(`/presences/structures/${structureId}/alerts`, { ...base, method: 'DELETE', headers: mutHeaders(), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -652,7 +668,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
-  getAlertSummary, getForgottenRegisters, getStatements,
+  getAlertSummary, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,
   getPresences, getStudentEvents, getChildren,

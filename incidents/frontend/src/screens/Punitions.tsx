@@ -1,7 +1,7 @@
 import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
@@ -33,6 +33,7 @@ export function Punitions() {
   const { structureId } = useStructure();
   const rights = useRights();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [extraNames, setExtraNames] = useState<Record<string, string>>({});
 
   const [start, setStart] = useState(schoolYear().start);
@@ -128,6 +129,19 @@ export function Punitions() {
     setCreating(true);
     window.history.replaceState({}, '');
   }, [location.state, structureId, rights.ready]);
+
+  // Arrivée depuis les alertes (`#/punitions?students=id1,id2`) : formulaire ouvert, élèves présélectionnés.
+  const linkedStudents = searchParams.get('students');
+  useEffect(() => {
+    if (!linkedStudents || !structureId || !rights.ready) return;
+    const ids = linkedStudents.split(',').filter(Boolean);
+    if (ids.length === 0) return;
+    setForm({ ...emptyForm(structureId), studentIds: ids });
+    setOldPeriod(null);
+    setSaved(null);
+    setCreating(true);
+    setSearchParams({}, { replace: true });
+  }, [linkedStudents, structureId, rights.ready, setSearchParams]);
 
   const onType = (value: string) => {
     const ty = allTypes.find((x) => x.id === Number(value));

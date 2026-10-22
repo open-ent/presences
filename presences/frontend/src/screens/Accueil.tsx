@@ -91,10 +91,10 @@ export function Accueil() {
           {ALERT_TYPES.map((type) => {
             const count = summary[type] ?? 0;
             return (
-              <div key={type} className="card p-16 text-center" style={{ minWidth: 160, flexGrow: 1 }} aria-label={alerteLabel(type)}>
+              <Link key={type} to={`/alertes?type=${type}`} className="card p-16 text-center text-decoration-none" style={{ minWidth: 160, flexGrow: 1 }} aria-label={alerteLabel(type)} data-alert-card={type}>
                 <div style={{ fontSize: 32, fontWeight: 700, color: count > 0 ? '#c0392b' : '#7f8c8d' }}>{count}</div>
                 <div className="text-muted">{alerteLabel(type)}</div>
-              </div>
+              </Link>
             );
           })}
         </div>
