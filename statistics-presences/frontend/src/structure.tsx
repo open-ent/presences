@@ -39,7 +39,7 @@ export function useStructure() {
 
 /** Sélecteur d'établissement, affiché seulement quand le compte en a plusieurs. */
 export function StructureSelect() {
-  const { t } = useTranslation(['presences', 'common']);
+  const { t } = useTranslation(['statistics-presences', 'common']);
   const { structureId, structures, setStructureId } = useStructure();
   if (structures.length < 2) return null;
   return (

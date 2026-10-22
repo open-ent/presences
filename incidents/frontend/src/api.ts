@@ -2,6 +2,7 @@
 // Migration AngularJS -> React (CCTP 51C) : lecture des incidents et des punitions/sanctions.
 
 import { protagonistesLabel } from './utils';
+import { PunishmentForm, RawPunishment, createBody, fieldsSummary, processBody } from './punishments';
 
 function xsrfHeader(): Record<string, string> {
   const m = typeof document !== 'undefined' ? document.cookie.match(/XSRF-TOKEN=([^;]+)/) : null;
@@ -165,31 +166,50 @@ export interface Punishment {
   typeLabel: string;
   description: string;
   createdAt: string;
+  processed: boolean;
+  /** Détail lisible (échéance, créneaux, période). */
+  details: string;
+  /** Objet serveur complet, renvoyé tel quel lors d'une mise à jour. */
+  raw: RawPunishment;
 }
 
-/** Structure renvoyée par GET /incidents/punishments. */
-interface PunishmentsResponse {
-  all?: Array<{
-    id: string;
-    student?: { displayName?: string };
-    type?: { label?: string };
-    fields?: { description?: string };
-    created_at?: string;
-  }>;
-}
-
-/** Punitions/sanctions de la structure (GET /incidents/punishments). */
-export const getPunishments = async (structureId: string, startAt: string, endAt: string, page = 0): Promise<Paged<Punishment>> => {
-  const url = `/incidents/punishments?structure_id=${structureId}&start_at=${startAt}&end_at=${endAt}&page=${page}`;
-  const data = await json<PunishmentsResponse>(await fetch(url, base));
+/** Punitions/sanctions de la structure (GET /incidents/punishments) ; `params` vient de `listParams`. */
+export const getPunishments = async (params: string, page = 0): Promise<Paged<Punishment>> => {
+  const data = await json<{ all?: RawPunishment[] }>(await fetch(`/incidents/punishments?${params}&page=${page}`, base));
   const items = (data.all ?? []).map((p) => ({
     id: p.id,
     studentName: p.student?.displayName ?? '',
     typeLabel: p.type?.label ?? '',
-    description: p.fields?.description ?? '',
+    description: p.description ?? '',
     createdAt: p.created_at ?? '',
+    processed: Boolean(p.processed),
+    details: fieldsSummary(p.fields),
+    raw: p,
   }));
   return { items, page, hasNext: (data.all ?? []).length >= PAGE_SIZE };
+};
+
+/** Export CSV des punitions (GET /incidents/punishments/export, mêmes critères que la liste). */
+export const punishmentsExportUrl = (params: string): string => `/incidents/punishments/export?${params}`;
+
+/** Crée des punitions (une par élève) : POST /incidents/punishments. */
+export const createPunishment = async (form: PunishmentForm): Promise<void> => {
+  const res = await fetch('/incidents/punishments', { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify(createBody(form)) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Marque une punition traitée / non traitée : PUT /incidents/punishments. */
+export const setPunishmentProcessed = async (p: RawPunishment, processed: boolean): Promise<void> => {
+  const res = await fetch('/incidents/punishments', { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify(processBody(p, processed)) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Supprime une punition (ou toutes les retenues du même groupe) : DELETE /incidents/punishments. */
+export const deletePunishment = async (p: RawPunishment): Promise<void> => {
+  let url = `/incidents/punishments?structureId=${p.structure_id ?? ''}&id=${p.id}`;
+  if (p.grouped_punishment_id) url += `&grouped_punishment_id=${p.grouped_punishment_id}`;
+  const res = await fetch(url, { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
 };
 
 // ── Types de sanction (référentiel, pour information) ─────────────────────────────
@@ -197,7 +217,11 @@ export const getPunishments = async (structureId: string, startAt: string, endAt
 export interface PunishmentType {
   id: number;
   label: string;
+  /** « PUNISHMENT » ou « SANCTION ». */
   type?: string;
+  /** 1 travail, 2 retenue, 3 blâme, 4 exclusion. */
+  punishment_category_id?: number;
+  hidden?: boolean;
 }
 
 /** Types de punition/sanction de la structure (GET /incidents/punishments/type). */
@@ -229,6 +253,10 @@ export const setIncidentProcessed = async (raw: RawIncident, processed: boolean)
 export const api = {
   getIncidents,
   getPunishments,
+  punishmentsExportUrl,
+  createPunishment,
+  setPunishmentProcessed,
+  deletePunishment,
   getPunishmentTypes,
   setIncidentProcessed,
   getIncidentTypes,

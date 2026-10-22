@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
  * visibles, sans indication qu'il en existait d'autres.
  */
 export function Pager({ page, hasNext, onChange }: { page: number; hasNext: boolean; onChange: (page: number) => void }) {
-  const { t } = useTranslation(['presences', 'common']);
+  const { t } = useTranslation(['incidents', 'common']);
   if (page === 0 && !hasNext) return null;
   return (
     <nav className="d-flex align-items-center justify-content-center gap-12 my-12" aria-label={t('presences.pager', { defaultValue: 'Pagination' })} data-pager>
