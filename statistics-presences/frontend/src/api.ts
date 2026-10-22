@@ -87,7 +87,7 @@ export const refreshStudents = async (structureId: string, studentIds: string[])
   if (!res.ok) throw new Error(String(res.status));
 };
 
-export interface Person { id: string; name: string }
+export interface Person { id: string; name: string; /** Regroupement : les classes qui le composent. */ members?: Person[] }
 
 /** Élèves de la structure dont le nom correspond. */
 export const searchStudents = async (structureId: string, q: string): Promise<Person[]> =>
@@ -101,7 +101,10 @@ export const searchAudiences = async (structureId: string, q: string, withGroupi
   const out: Person[] = (groups ?? []).map((g) => ({ id: g.id, name: g.name }));
   if (withGroupings) {
     const res = await fetch(`/presences/grouping/structure/${structureId}/list?searchValue=${encodeURIComponent(q.replace(/\s/g, '').toLowerCase())}`, base);
-    if (res.ok) out.push(...((await res.json().catch(() => [])) as Array<{ id: string; name: string }>).map((g) => ({ id: g.id, name: g.name })));
+    if (res.ok) {
+      const groupings = (await res.json().catch(() => [])) as Array<{ id: string; name: string; student_divisions?: Array<{ id: string; name: string }> }>;
+      out.push(...groupings.map((g) => ({ id: g.id, name: g.name, members: (g.student_divisions ?? []).map((d) => ({ id: d.id, name: d.name })) })));
+    }
   }
   return out;
 };

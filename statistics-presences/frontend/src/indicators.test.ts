@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  MonthlyAudience, Reason, absenceSelected, displayCount, exportUrl, graphSeries, indicatorBody, indicatorTypes, initialFilters, mergeMonthly, monthLabel,
+  addAudiences, audienceSelection, MonthlyAudience, Reason, absenceSelected, displayCount, exportUrl, graphSeries, indicatorBody, indicatorTypes, initialFilters, mergeMonthly, monthLabel,
   monthLabels, monthStat, monthlyTableTypes, toggleReason, toggleType, weeklyGrid,
 } from './indicators';
 
@@ -120,5 +120,13 @@ describe('hebdomadaire', () => {
     expect(g.days).toEqual([1, 2, 3, 4, 5, 6]);
     expect(g.cell(1, slots[0])?.rate).toBe(12);
     expect(g.cell(2, slots[0])).toBeUndefined();
+  });
+});
+
+describe('audiences', () => {
+  it('remplace un regroupement par ses classes, sans doublon', () => {
+    expect(audienceSelection({ id: 'g', name: 'Niveau', members: [{ id: 'c1', name: '6A' }, { id: 'c2', name: '6B' }] }).map((x) => x.id)).toEqual(['c1', 'c2']);
+    expect(audienceSelection({ id: 'c1', name: '6A' })).toEqual([{ id: 'c1', name: '6A' }]);
+    expect(addAudiences([{ id: 'c1', name: '6A' }], [{ id: 'c1', name: '6A' }, { id: 'c2', name: '6B' }]).map((x) => x.id)).toEqual(['c1', 'c2']);
   });
 });

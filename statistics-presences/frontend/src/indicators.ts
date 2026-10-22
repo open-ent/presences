@@ -208,3 +208,14 @@ export function monthLabel(month: string): string {
   const names = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   return `${names[Number(m[2]) - 1] ?? m[2]} ${m[1]}`;
 }
+
+/** Un regroupement choisi est remplacé par les classes qui le composent ; une classe ou un groupe reste tel quel. */
+export function audienceSelection(hit: { id: string; name: string; members?: Array<{ id: string; name: string }> }): Array<{ id: string; name: string }> {
+  return hit.members && hit.members.length > 0 ? hit.members.map((m) => ({ id: m.id, name: m.name })) : [{ id: hit.id, name: hit.name }];
+}
+
+/** Ajoute des audiences à la sélection sans doublon. */
+export function addAudiences(current: Array<{ id: string; name: string }>, added: Array<{ id: string; name: string }>): Array<{ id: string; name: string }> {
+  const seen = new Set(current.map((c) => c.id));
+  return [...current, ...added.filter((a) => !seen.has(a.id))];
+}

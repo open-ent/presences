@@ -313,6 +313,30 @@ export const resetAlerts = async (structureId: string, body: unknown): Promise<v
   if (!res.ok) throw new Error(String(res.status));
 };
 
+import type { AudienceHit } from './alerts';
+
+/**
+ * Classes, groupes et regroupements dont le nom correspond. La recherche de groupes demande le droit de recherche : sans
+ * lui, on retombe sur les classes de l'établissement filtrées par nom ; les regroupements sont facultatifs.
+ */
+export const searchAudiences = async (structureId: string, q: string): Promise<AudienceHit[]> => {
+  const term = q.trim();
+  let hits: AudienceHit[];
+  const res = await fetch(`/presences/search/groups?structureId=${structureId}&q=${encodeURIComponent(term)}&field=name`, base);
+  if (res.ok) {
+    hits = ((await res.json().catch(() => [])) as Array<{ id: string; name: string }>).map((g) => ({ id: g.id, name: g.name }));
+  } else {
+    const lower = term.toLowerCase();
+    hits = (await getClasses(structureId)).filter((c) => c.name.toLowerCase().includes(lower));
+  }
+  const gr = await fetch(`/presences/grouping/structure/${structureId}/list?searchValue=${encodeURIComponent(term.replace(/\s/g, '').toLowerCase())}`, base);
+  if (gr.ok) {
+    const groupings = (await gr.json().catch(() => [])) as Array<{ id: string; name: string; student_divisions?: Array<{ id: string; name: string }> }>;
+    hits.push(...groupings.map((g) => ({ id: g.id, name: g.name, members: (g.student_divisions ?? []).map((d) => ({ id: d.id, name: d.name })) })));
+  }
+  return hits;
+};
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -668,7 +692,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
-  getAlertSummary, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
+  getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,
   getPresences, getStudentEvents, getChildren,

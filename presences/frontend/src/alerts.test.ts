@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alertKey, alertParams, mergeAlerts, punishLink, resetBody, selectedStudents, typesFromParam } from './alerts';
+import { addAudiences, audienceSelection, alertKey, alertParams, mergeAlerts, punishLink, resetBody, selectedStudents, typesFromParam } from './alerts';
 
 const a = (id: string, type: string, count = 3) => ({ student_id: id, type, count, name: `Élève ${id}`, audience: '6A' });
 
@@ -25,5 +25,11 @@ describe('alerts', () => {
     expect(typesFromParam('LATENESS')).toEqual(['LATENESS']);
     expect(typesFromParam('AUTRE')).toHaveLength(4);
     expect(typesFromParam(null)).toHaveLength(4);
+  });
+  it('remplace un regroupement par ses classes, sans doublon', () => {
+    expect(audienceSelection({ id: 'g1', name: 'Niveau 6e', members: [{ id: 'c1', name: '6A' }, { id: 'c2', name: '6B' }] })).toEqual([{ id: 'c1', name: '6A' }, { id: 'c2', name: '6B' }]);
+    expect(audienceSelection({ id: 'c1', name: '6A' })).toEqual([{ id: 'c1', name: '6A' }]);
+    expect(audienceSelection({ id: 'g2', name: 'Vide', members: [] })).toEqual([{ id: 'g2', name: 'Vide' }]);
+    expect(addAudiences([{ id: 'c1', name: '6A' }], [{ id: 'c1', name: '6A' }, { id: 'c2', name: '6B' }]).map((x) => x.id)).toEqual(['c1', 'c2']);
   });
 });

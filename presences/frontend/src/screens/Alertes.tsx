@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
-import { AlertType, ALERT_TYPES_LIST, alertKey, alertParams, mergeAlerts, punishLink, resetBody, selectedStudents, typesFromParam } from '../alerts';
+import { AlertType, ALERT_TYPES_LIST, addAudiences, audienceSelection, alertKey, alertParams, mergeAlerts, punishLink, resetBody, selectedStudents, typesFromParam } from '../alerts';
 import { api } from '../api';
 import { QueryErrors } from '../components/QueryErrors';
 import { useStructure } from '../structure';
@@ -43,7 +43,8 @@ export function Alertes() {
     enabled: !!structureId && types.length > 0,
   });
   const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
-  const classesQuery = useQuery({ queryKey: ['pres', 'classes', structureId], queryFn: () => api.getClasses(structureId), enabled: !!structureId });
+  const audienceTerm = classSearch.trim();
+  const classesQuery = useQuery({ queryKey: ['pres', 'audiences', structureId, audienceTerm], queryFn: () => api.searchAudiences(structureId, audienceTerm), enabled: !!structureId && audienceTerm.length >= 1 });
 
   const alerts = (listQuery.data?.pages ?? []).reduce<ReturnType<typeof mergeAlerts>>((acc, p) => mergeAlerts(acc, p.all), []).filter((a) => a.name);
   const chosen = alerts.filter((a) => selected.has(alertKey(a)));
@@ -54,11 +55,7 @@ export function Alertes() {
     if (q.length < 2) return [];
     return (studentsQuery.data ?? []).filter((s) => s.displayName.toLowerCase().includes(q) && !students.some((x) => x.id === s.id)).slice(0, 10);
   }, [studentsQuery.data, studentSearch, students]);
-  const classResults = useMemo(() => {
-    const q = classSearch.trim().toLowerCase();
-    if (q.length < 1) return [];
-    return (classesQuery.data ?? []).filter((c) => c.name.toLowerCase().includes(q) && !classes.some((x) => x.id === c.id)).slice(0, 10);
-  }, [classesQuery.data, classSearch, classes]);
+  const classResults = (classesQuery.data ?? []).filter((c) => !!c.members || !classes.some((x) => x.id === c.id)).slice(0, 10);
 
   const resetMut = useMutation({
     mutationFn: () => api.resetAlerts(structureId, resetBody(chosen, start, end)),
@@ -92,11 +89,11 @@ export function Alertes() {
           </div>
         </div>
         <div style={{ minWidth: 260 }}>
-          <label htmlFor="al-class" className="form-label">{t('presences.exemptions.search.audience', { defaultValue: 'Rechercher une classe' })}</label>
+          <label htmlFor="al-class" className="form-label">{t('presences.exemptions.search.audience', { defaultValue: 'Rechercher une classe, un groupe ou un regroupement' })}</label>
           <input id="al-class" className="form-control" value={classSearch} onChange={(e) => setClassSearch(e.target.value)} autoComplete="off" />
           {classResults.length > 0 && (
             <ul className="list-unstyled border mb-0" data-class-results>
-              {classResults.map((c) => <li key={c.id}><button type="button" className="btn btn-link" data-pick-class={c.id} onClick={() => { setClasses([...classes, c]); setClassSearch(''); changed(); }}>{c.name}</button></li>)}
+              {classResults.map((c) => <li key={c.id}><button type="button" className="btn btn-link" data-pick-class={c.id} onClick={() => { setClasses(addAudiences(classes, audienceSelection(c))); setClassSearch(''); changed(); }}>{c.name}{c.members ? ' (regroupement)' : ''}</button></li>)}
             </ul>
           )}
           <div className="d-flex gap-8 flex-wrap mt-8" data-chosen-classes>

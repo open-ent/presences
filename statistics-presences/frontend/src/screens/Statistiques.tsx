@@ -11,7 +11,7 @@ import { MonthlyTable } from '../components/MonthlyTable';
 import { PersonSearch } from '../components/PersonSearch';
 import { WeeklyGrid } from '../components/WeeklyGrid';
 import {
-  absenceSelected, exportUrl, Filters, graphSeries, indicatorBody, INDICATOR_LABEL, indicatorTypes, IndicatorName, INDICATORS, initialFilters,
+  absenceSelected, addAudiences, audienceSelection, exportUrl, Filters, graphSeries, indicatorBody, INDICATOR_LABEL, indicatorTypes, IndicatorName, INDICATORS, initialFilters,
   monthLabels, monthlyTableTypes, NO_LATENESS_REASON, weeklyGrid,
 } from '../indicators';
 import { useStructure } from '../structure';
@@ -78,7 +78,7 @@ export function Statistiques() {
 
   const weekly = name === 'Weekly';
   const addStudent = (p: Person) => { setAudiences([]); setStudents(weekly ? [p] : [...students, p]); };
-  const addAudience = (p: Person) => { setStudents([]); setAudiences(weekly ? [p] : [...audiences, p]); };
+  const addAudience = (p: Person) => { setStudents([]); const added = audienceSelection(p); setAudiences(weekly ? added.slice(0, 1) : addAudiences(audiences, added)); };
 
   // Types réellement demandés : en tableau mensuel, une seule famille d'événements.
   const types = !filters ? [] : name === 'Monthly' && display === 'TABLE' ? monthlyTableTypes(filters.types) : filters.types;

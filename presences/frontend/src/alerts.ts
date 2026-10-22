@@ -60,3 +60,17 @@ export const punishLink = (students: Array<{ id: string }>): string => `/inciden
 export function typesFromParam(param: string | null): AlertType[] {
   return ALERT_TYPES_LIST.includes(param as AlertType) ? [param as AlertType] : ALERT_TYPES_LIST;
 }
+
+/** Un résultat de recherche d'audience : une classe ou un groupe, ou un regroupement (avec les classes qui le composent). */
+export interface AudienceHit { id: string; name: string; members?: Array<{ id: string; name: string }> }
+
+/** Un regroupement choisi est remplacé par ses classes (comme l'AngularJS) ; une classe ou un groupe reste tel quel. */
+export function audienceSelection(hit: AudienceHit): Array<{ id: string; name: string }> {
+  return hit.members && hit.members.length > 0 ? hit.members.map((m) => ({ id: m.id, name: m.name })) : [{ id: hit.id, name: hit.name }];
+}
+
+/** Ajoute des audiences à la sélection sans doublon. */
+export function addAudiences(current: Array<{ id: string; name: string }>, added: Array<{ id: string; name: string }>): Array<{ id: string; name: string }> {
+  const seen = new Set(current.map((c) => c.id));
+  return [...current, ...added.filter((a) => !seen.has(a.id))];
+}
