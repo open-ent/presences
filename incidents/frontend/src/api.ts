@@ -2,7 +2,7 @@
 // Migration AngularJS -> React (CCTP 51C) : lecture des incidents et des punitions/sanctions.
 
 import { protagonistesLabel } from './utils';
-import { PunishmentForm, RawPunishment, createBody, fieldsSummary, processBody } from './punishments';
+import { AbsenceInfo, PunishmentForm, RawPunishment, createBody, fieldsSummary, processBody, updateBody } from './punishments';
 
 function xsrfHeader(): Record<string, string> {
   const m = typeof document !== 'undefined' ? document.cookie.match(/XSRF-TOKEN=([^;]+)/) : null;
@@ -204,13 +204,44 @@ export const setPunishmentProcessed = async (p: RawPunishment, processed: boolea
   if (!res.ok) throw new Error(String(res.status));
 };
 
-/** Supprime une punition (ou toutes les retenues du même groupe) : DELETE /incidents/punishments. */
-export const deletePunishment = async (p: RawPunishment): Promise<void> => {
-  let url = `/incidents/punishments?structureId=${p.structure_id ?? ''}&id=${p.id}`;
-  if (p.grouped_punishment_id) url += `&grouped_punishment_id=${p.grouped_punishment_id}`;
-  const res = await fetch(url, { ...base, method: 'DELETE', headers: mutHeaders() });
+/** Modifie une punition : PUT /incidents/punishments (corps complet). */
+export const updatePunishment = async (form: PunishmentForm): Promise<void> => {
+  const res = await fetch('/incidents/punishments', { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify(updateBody(form)) });
   if (!res.ok) throw new Error(String(res.status));
 };
+
+/** Supprime une seule punition (DELETE ?id=). */
+export const deletePunishment = async (p: RawPunishment): Promise<void> => {
+  const res = await fetch(`/incidents/punishments?id=${p.id}&structureId=${p.structure_id ?? ''}`, { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Supprime toutes les retenues d'un même groupe (DELETE ?grouped_punishment_id=). */
+export const deletePunishmentGroup = async (p: RawPunishment): Promise<void> => {
+  const res = await fetch(`/incidents/punishments?grouped_punishment_id=${p.grouped_punishment_id}&structureId=${p.structure_id ?? ''}`, { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Les retenues d'un même groupe (GET ?grouped_punishment_id=). */
+export const getPunishmentGroup = async (structureId: string, groupedId: string): Promise<RawPunishment[]> => {
+  const data = await json<{ all?: RawPunishment[] }>(await fetch(`/incidents/punishments?structure_id=${structureId}&grouped_punishment_id=${groupedId}`, base));
+  return data.all ?? [];
+};
+
+/** Absences des élèves sur une période (POST /incidents/punishments/students/absences). */
+export const getStudentsAbsences = async (studentIds: string[], startAt: string, endAt: string): Promise<Record<string, AbsenceInfo[]>> => {
+  const res = await fetch('/incidents/punishments/students/absences', { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify({ studentIds, startAt, endAt }) });
+  const data = await json<{ all?: Record<string, AbsenceInfo[]> }>(res);
+  return data.all ?? {};
+};
+
+/** Motifs d'absence de la structure (pour déclarer l'absence liée à une exclusion). */
+export const getAbsenceReasons = async (structureId: string): Promise<Array<{ id: number; label: string }>> =>
+  json<Array<{ id: number; label: string; hidden?: boolean }>>(await fetch(`/incidents/structures/${structureId}/reasons`, base)).then((a) => (a ?? []).filter((r) => !r.hidden));
+
+/** Classes de la structure (filtre de la liste). */
+export const getClasses = async (structureId: string): Promise<Array<{ id: string; name: string }>> =>
+  json<Array<{ id: string; name: string }>>(await fetch(`/viescolaire/classes?idEtablissement=${structureId}`, base)).then((a) => (a ?? []).map((c) => ({ id: c.id, name: c.name })));
 
 // ── Types de sanction (référentiel, pour information) ─────────────────────────────
 /** Un type de sanction/punition. */
@@ -256,7 +287,13 @@ export const api = {
   punishmentsExportUrl,
   createPunishment,
   setPunishmentProcessed,
+  updatePunishment,
   deletePunishment,
+  deletePunishmentGroup,
+  getPunishmentGroup,
+  getStudentsAbsences,
+  getAbsenceReasons,
+  getClasses,
   getPunishmentTypes,
   setIncidentProcessed,
   getIncidentTypes,

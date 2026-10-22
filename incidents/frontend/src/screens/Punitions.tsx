@@ -1,12 +1,12 @@
 import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { QueryErrors } from '../components/QueryErrors';
 import { Pager } from '../components/Pager';
-import { CATEGORY_LABEL, CategoryId, PunishmentForm, ProcessFilter, emptyForm, emptySlot, formError, listParams } from '../punishments';
+import { CATEGORY_LABEL, CategoryId, PunishmentForm, ProcessFilter, absenceStatus, anomalyStudents, emptyForm, emptySlot, formError, formFromPunishment, listParams } from '../punishments';
 import { canCreateType, useRights } from '../rights';
 import { useStructure } from '../structure';
 import { dateFr, schoolYear } from '../utils';
@@ -41,13 +41,38 @@ export function Punitions() {
   const [form, setForm] = useState<PunishmentForm>(emptyForm(''));
   const [search, setSearch] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [created, setCreated] = useState(false);
+  const [saved, setSaved] = useState<'created' | 'updated' | null>(null);
+  const [studentIdsFilter, setStudentIdsFilter] = useState<string[]>([]);
+  const [studentFilterSearch, setStudentFilterSearch] = useState('');
+  const [groupIds, setGroupIds] = useState<string[]>([]);
+  /** Période d'exclusion d'origine d'une punition en cours de modification (pour retrouver l'absence liée). */
+  const [oldPeriod, setOldPeriod] = useState<{ start: string; end: string } | null>(null);
 
-  const params = listParams(structureId, start, end, process, typeIds);
+  const params = listParams(structureId, start, end, process, typeIds, studentIdsFilter, groupIds);
   const punishmentsQuery = useQuery({ queryKey: ['incidents', 'punishments', params, page], queryFn: () => api.getPunishments(params, page), enabled: !!structureId });
   const typesQuery = useQuery({ queryKey: ['incidents', 'punishment-types', structureId], queryFn: () => api.getPunishmentTypes(structureId), enabled: !!structureId });
   const placesQuery = useQuery({ queryKey: ['incidents', 'places', structureId], queryFn: () => api.getPlaces(structureId), enabled: !!structureId && creating });
-  const studentsQuery = useQuery({ queryKey: ['incidents', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId && creating });
+  const studentsQuery = useQuery({ queryKey: ['incidents', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
+  const classesQuery = useQuery({ queryKey: ['incidents', 'classes', structureId], queryFn: () => api.getClasses(structureId), enabled: !!structureId });
+  const editing = form.editing;
+  const isExclusion = creating && form.categoryId === 4;
+  // Absences existantes de l'élève sur la période : en modification, celle de la période d'origine.
+  const absStart = editing && oldPeriod ? `${oldPeriod.start} 00:00:00` : form.excludeStart ? `${form.excludeStart} 00:00:00` : '';
+  const absEnd = editing && oldPeriod ? `${oldPeriod.end} 23:59:59` : form.excludeEnd ? `${form.excludeEnd} 23:59:59` : '';
+  const absencesQuery = useQuery({
+    queryKey: ['incidents', 'student-absences', form.studentIds.join(','), absStart, absEnd],
+    queryFn: () => api.getStudentsAbsences(form.studentIds, absStart, absEnd),
+    enabled: isExclusion && form.studentIds.length > 0 && !!absStart && !!absEnd,
+  });
+  const reasonsQuery = useQuery({ queryKey: ['incidents', 'absence-reasons', structureId], queryFn: () => api.getAbsenceReasons(structureId), enabled: !!structureId && isExclusion && form.absence.enabled });
+  const absences = absencesQuery.data ?? {};
+  const editStatus = editing ? absenceStatus(absences[editing.studentId] ?? [], absStart, absEnd) : null;
+  const anomalies = anomalyStudents(absences);
+  // Une absence déjà liée à l'exclusion : l'interrupteur est coché d'office avec son motif.
+  const linked = editing ? (absences[editing.studentId] ?? [])[0] : undefined;
+  useEffect(() => {
+    if (editStatus === 'matching' && linked && !form.absence.enabled) setForm((f) => ({ ...f, absence: { enabled: true, reasonId: linked.reason_id ?? null, followed: linked.followed ?? true } }));
+  }, [editStatus, linked, form.absence.enabled]);
 
   const punishments = punishmentsQuery.data?.items ?? [];
   const allTypes = (typesQuery.data ?? []).filter((ty) => !ty.hidden);
@@ -57,10 +82,10 @@ export function Punitions() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['incidents', 'punishments'] });
   const processMut = useMutation({ mutationFn: (v: { p: (typeof punishments)[number]; value: boolean }) => api.setPunishmentProcessed(v.p.raw, v.value), onSuccess: invalidate });
-  const deleteMut = useMutation({ mutationFn: (p: (typeof punishments)[number]) => api.deletePunishment(p.raw), onSuccess: invalidate });
+  const deleteMut = useMutation({ mutationFn: (v: { p: (typeof punishments)[number]; all: boolean }) => (v.all ? api.deletePunishmentGroup(v.p.raw) : api.deletePunishment(v.p.raw)), onSuccess: invalidate });
   const createMut = useMutation({
-    mutationFn: () => api.createPunishment(form),
-    onSuccess: () => { setCreating(false); setCreated(true); setSubmitted(false); setSearch(''); invalidate(); },
+    mutationFn: () => (form.editing ? api.updatePunishment(form) : api.createPunishment(form)),
+    onSuccess: () => { setSaved(form.editing ? 'updated' : 'created'); setCreating(false); setSubmitted(false); setSearch(''); invalidate(); },
   });
 
   const results = useMemo(() => {
@@ -70,10 +95,25 @@ export function Punitions() {
   }, [studentsQuery.data, search, form.studentIds]);
   const nameOf = (id: string) => studentsQuery.data?.find((s) => s.id === id)?.displayName ?? id;
 
+  const filterResults = useMemo(() => {
+    const q = studentFilterSearch.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return (studentsQuery.data ?? []).filter((st) => st.displayName.toLowerCase().includes(q) && !studentIdsFilter.includes(st.id)).slice(0, 10);
+  }, [studentsQuery.data, studentFilterSearch, studentIdsFilter]);
+
   const err = formError(form);
   const set = (patch: Partial<PunishmentForm>) => setForm((f) => ({ ...f, ...patch }));
   const setSlot = (i: number, patch: Partial<PunishmentForm['slots'][number]>) => set({ slots: form.slots.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
-  const openForm = () => { setForm(emptyForm(structureId)); setSubmitted(false); setCreated(false); setCreating(true); };
+  const openForm = () => { setForm(emptyForm(structureId)); setOldPeriod(null); setSubmitted(false); setSaved(null); setCreating(true); };
+  const openEdit = async (p: (typeof punishments)[number]) => {
+    const group = p.raw.grouped_punishment_id && p.raw.type?.punishment_category_id === 2 ? await api.getPunishmentGroup(structureId, p.raw.grouped_punishment_id).catch(() => []) : [];
+    const f = formFromPunishment({ ...p.raw, structure_id: p.raw.structure_id ?? structureId }, group);
+    setOldPeriod(f.categoryId === 4 ? { start: f.excludeStart, end: f.excludeEnd } : null);
+    setForm(f);
+    setSubmitted(false);
+    setSaved(null);
+    setCreating(true);
+  };
   const onType = (value: string) => {
     const ty = allTypes.find((x) => x.id === Number(value));
     set({ typeId: ty ? ty.id : null, categoryId: ty && ty.punishment_category_id ? (ty.punishment_category_id as CategoryId) : null });
@@ -112,6 +152,30 @@ export function Punitions() {
             <option value="processed">{t('incidents.state.processed', { defaultValue: 'Traités' })}</option>
           </select>
         </div>
+        <div>
+          <label htmlFor="pun-filter-student" className="form-label">{t('incidents.student', { defaultValue: 'Élève' })}</label>
+          <input id="pun-filter-student" className="form-control" value={studentFilterSearch} onChange={(e) => setStudentFilterSearch(e.target.value)} autoComplete="off" />
+          {filterResults.length > 0 && (
+            <ul className="list-unstyled border mb-0" data-filter-results>
+              {filterResults.map((st) => (
+                <li key={st.id}><button type="button" className="btn btn-link" data-filter-student={st.id} onClick={() => { setStudentIdsFilter([...studentIdsFilter, st.id]); setStudentFilterSearch(''); setPage(0); }}>{st.displayName}</button></li>
+              ))}
+            </ul>
+          )}
+          <div className="d-flex gap-8 flex-wrap mt-8" data-filter-students>
+            {studentIdsFilter.map((id) => (
+              <span key={id} className="badge bg-secondary">{nameOf(id)} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${nameOf(id)}`} onClick={() => { setStudentIdsFilter(studentIdsFilter.filter((x) => x !== id)); setPage(0); }}>×</button></span>
+            ))}
+          </div>
+        </div>
+        <details data-class-filter>
+          <summary>{t('incidents.class', { defaultValue: 'Classe' })}{groupIds.length > 0 ? ` (${groupIds.length})` : ''}</summary>
+          {(classesQuery.data ?? []).map((c) => (
+            <label key={c.id} className="d-block">
+              <input type="checkbox" data-class={c.id} checked={groupIds.includes(c.id)} onChange={() => { setGroupIds(groupIds.includes(c.id) ? groupIds.filter((x) => x !== c.id) : [...groupIds, c.id]); setPage(0); }} /> {c.name}
+            </label>
+          ))}
+        </details>
         <details data-type-filter>
           <summary>{t('incidents.type', { defaultValue: 'Type' })}{typeIds.length > 0 ? ` (${typeIds.length})` : ''}</summary>
           {allTypes.map((ty) => (
@@ -130,7 +194,7 @@ export function Punitions() {
         </span>
       </div>
 
-      {created && <div className="alert alert-success" role="status" data-created>{t('incidents.punishment.created', { defaultValue: 'Punition enregistrée.' })}</div>}
+      {saved && <div className="alert alert-success" role="status" data-created>{saved === 'updated' ? t('incidents.punishment.updated', { defaultValue: 'Punition modifiée.' }) : t('incidents.punishment.created', { defaultValue: 'Punition enregistrée.' })}</div>}
 
       {creating && (
         <form
@@ -138,17 +202,21 @@ export function Punitions() {
           data-punishment-form
           onSubmit={(e) => { e.preventDefault(); setSubmitted(true); if (!err) createMut.mutate(); }}
         >
-          <h2 style={{ fontSize: 18 }} className="mb-12">{t('incidents.punishment.new', { defaultValue: 'Nouvelle punition / sanction' })}</h2>
+          <h2 style={{ fontSize: 18 }} className="mb-12">{editing ? t('incidents.punishment.edit', { defaultValue: 'Modifier la punition / sanction' }) : t('incidents.punishment.new', { defaultValue: 'Nouvelle punition / sanction' })}</h2>
           <div className="mb-12">
             <label htmlFor="pun-type" className="form-label">{t('incidents.type', { defaultValue: 'Type' })}</label>
-            <select id="pun-type" className="form-control" value={form.typeId ?? ''} onChange={(e) => onType(e.target.value)}>
+            <select id="pun-type" className="form-control" value={form.typeId ?? ''} disabled={!!editing} onChange={(e) => onType(e.target.value)}>
               <option value="">—</option>
-              {creatable.map((ty) => <option key={ty.id} value={ty.id}>{ty.label}</option>)}
+              {(editing ? allTypes : creatable).map((ty) => <option key={ty.id} value={ty.id}>{ty.label}</option>)}
             </select>
           </div>
           <div className="mb-12">
             <label htmlFor="pun-student" className="form-label">{t('incidents.student', { defaultValue: 'Élève' })}</label>
-            <input id="pun-student" className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />
+            {editing ? (
+              <p data-fixed-student>{editing.studentName}</p>
+            ) : (
+              <input id="pun-student" className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />
+            )}
             {results.length > 0 && (
               <ul className="list-unstyled border mb-0" data-student-results>
                 {results.map((s) => (
@@ -160,14 +228,14 @@ export function Punitions() {
                 ))}
               </ul>
             )}
-            <div className="d-flex gap-8 flex-wrap mt-8" data-chosen-students>
+            {!editing && <div className="d-flex gap-8 flex-wrap mt-8" data-chosen-students>
               {form.studentIds.map((id) => (
                 <span key={id} className="badge bg-secondary">
                   {nameOf(id)}{' '}
                   <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${nameOf(id)}`} onClick={() => set({ studentIds: form.studentIds.filter((x) => x !== id) })}>×</button>
                 </span>
               ))}
-            </div>
+            </div>}
           </div>
 
           {form.categoryId === 1 && (
@@ -232,6 +300,40 @@ export function Punitions() {
               </label>
             </div>
           )}
+          {isExclusion && (
+            <div className="mb-12" data-absence>
+              <label>
+                <input
+                  type="checkbox"
+                  data-absence-toggle
+                  checked={form.absence.enabled}
+                  disabled={editStatus === 'matching' || editStatus === 'anomaly'}
+                  onChange={(e) => set({ absence: { ...form.absence, enabled: e.target.checked } })}
+                />{' '}
+                {t('incidents.punishment.declare.absence', { defaultValue: "Déclarer l'élève absent sur la période" })}
+              </label>
+              {editStatus === 'matching' && <p className="text-muted" data-absence-linked>{t('incidents.punishment.absence.linked', { defaultValue: "Une absence correspond déjà à cette exclusion : ses dates suivront la modification." })}</p>}
+              {(editing ? editStatus === 'anomaly' : anomalies.length > 0) && (
+                <div className="alert alert-warning mt-8" role="alert" data-absence-anomaly>
+                  {t('incidents.punishment.declare.absence.anomaly', { defaultValue: "Absence déjà saisie sur la période, aucune absence ne sera ajoutée pour" })} : {(editing ? [editing.studentId] : anomalies).map(nameOf).join(', ')}
+                </div>
+              )}
+              {form.absence.enabled && (
+                <div className="d-flex gap-12 flex-wrap align-items-end mt-8">
+                  <div>
+                    <label htmlFor="pun-absence-reason" className="form-label">{t('incidents.absence.reason', { defaultValue: "Motif de l'absence" })}</label>
+                    <select id="pun-absence-reason" className="form-control" value={form.absence.reasonId ?? ''} onChange={(e) => set({ absence: { ...form.absence, reasonId: e.target.value === '' ? null : Number(e.target.value) } })}>
+                      <option value="">{t('incidents.absence.select.empty', { defaultValue: 'Sans motif' })}</option>
+                      {(reasonsQuery.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <label>
+                    <input type="checkbox" checked={form.absence.followed} onChange={(e) => set({ absence: { ...form.absence, followed: e.target.checked } })} /> {t('incidents.punishment.declare.absence.followed', { defaultValue: "Absence suivie" })}
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
           {form.categoryId && (
             <p className="text-muted">{CATEGORY_LABEL[form.categoryId]}</p>
           )}
@@ -291,16 +393,30 @@ export function Punitions() {
                     ) : (p.processed ? t('incidents.yes', { defaultValue: 'Oui' }) : t('incidents.no', { defaultValue: 'Non' }))}
                   </td>
                   {canManage && (
-                    <td>
+                    <td className="text-nowrap">
+                      <button type="button" className="btn btn-outline-primary btn-sm me-8" data-edit={p.id} onClick={() => openEdit(p)}>
+                        {t('incidents.edit', { defaultValue: 'Modifier' })}
+                      </button>
                       <button
                         type="button"
                         className="btn btn-outline-danger btn-sm"
                         data-delete={p.id}
                         disabled={deleteMut.isPending}
-                        onClick={() => { if (window.confirm(t('incidents.punishment.delete.confirm', { defaultValue: 'Supprimer cette punition ?' }))) deleteMut.mutate(p); }}
+                        onClick={() => { if (window.confirm(t('incidents.punishment.delete.confirm', { defaultValue: 'Supprimer cette punition ?' }))) deleteMut.mutate({ p, all: false }); }}
                       >
                         {t('incidents.delete', { defaultValue: 'Supprimer' })}
                       </button>
+                      {p.raw.grouped_punishment_id && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm ms-8"
+                          data-delete-group={p.id}
+                          disabled={deleteMut.isPending}
+                          onClick={() => { if (window.confirm(t('incidents.punishment.delete.group.confirm', { defaultValue: 'Supprimer toutes les retenues de ce groupe ?' }))) deleteMut.mutate({ p, all: true }); }}
+                        >
+                          {t('incidents.delete.group', { defaultValue: 'Supprimer le groupe' })}
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>

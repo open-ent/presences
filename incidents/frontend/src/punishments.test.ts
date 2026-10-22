@@ -42,3 +42,36 @@ describe('punishments', () => {
     expect(listParams('s1', 'a', 'b', 'all', [])).toBe('structure_id=s1&start_at=a&end_at=b');
   });
 });
+
+import { absenceStatus, anomalyStudents, formFromPunishment, updateBody } from './punishments';
+
+describe('punishments (édition, absences, filtres)', () => {
+  it('ajoute l’absence à la création d’une exclusion', () => {
+    const f = { ...emptyForm('s1'), typeId: 5, categoryId: 4 as const, studentIds: ['e1'], excludeStart: '2026-11-02', excludeEnd: '2026-11-03', absence: { enabled: true, reasonId: 7, followed: false } };
+    expect(createBody(f).absence).toEqual({ reason_id: 7, followed: false });
+    expect(createBody({ ...f, absence: { ...f.absence, enabled: false } }).absence).toBeUndefined();
+  });
+  it('classe la situation d’un élève sur la période', () => {
+    expect(absenceStatus([], '2026-11-02 00:00:00', '2026-11-03 23:59:59')).toBe('none');
+    expect(absenceStatus([{ start_date: '2026-11-02T00:00:00', end_date: '2026-11-03 23:59:59' }], '2026-11-02 00:00:00', '2026-11-03 23:59:59')).toBe('matching');
+    expect(absenceStatus([{ start_date: '2026-11-02 08:00:00', end_date: '2026-11-02 12:00:00' }], '2026-11-02 00:00:00', '2026-11-03 23:59:59')).toBe('anomaly');
+    expect(anomalyStudents({ a: [], b: [{ start_date: 'x', end_date: 'y' }] })).toEqual(['b']);
+  });
+  it('remplit le formulaire d’une retenue avec son groupe et renvoie les identifiants des créneaux', () => {
+    const mk = (id: string, day: string) => ({ id, grouped_punishment_id: 'g', structure_id: 's1', type: { id: 4, punishment_category_id: 2 }, owner: { id: 'o' }, student: { id: 'e1', displayName: 'Léa' }, fields: { start_at: `${day} 14:00:00`, end_at: `${day} 15:00:00`, place: 'B12' } });
+    const f = formFromPunishment(mk('p2', '2026-11-05'), [mk('p2', '2026-11-05'), mk('p1', '2026-11-02')]);
+    expect(f.slots.map((s) => s.id)).toEqual(['p1', 'p2']);
+    const body = updateBody(f);
+    expect(body).toMatchObject({ id: 'p2', grouped_punishment_id: 'g', owner_id: 'o', student_id: 'e1', type_id: 4 });
+    expect((body.fields as Array<{ id?: string }>).map((x) => x.id)).toEqual(['p1', 'p2']);
+  });
+  it('remplit une exclusion et une consigne', () => {
+    const ex = formFromPunishment({ id: 'p', structure_id: 's', type: { id: 5, punishment_category_id: 4 }, fields: { start_at: '2026-11-02 00:00:00', end_at: '2026-11-03 23:59:59', mandatory_presence: true } });
+    expect([ex.excludeStart, ex.excludeEnd, ex.mandatoryPresence]).toEqual(['2026-11-02', '2026-11-03', true]);
+    const du = formFromPunishment({ id: 'p', structure_id: 's', type: { id: 1, punishment_category_id: 1 }, fields: { delay_at: '2026-10-30 00:00:00', instruction: 'x' } });
+    expect([du.delayDate, du.instruction]).toEqual(['2026-10-30', 'x']);
+  });
+  it('filtre par élève et classe', () => {
+    expect(listParams('s', 'a', 'b', 'all', [], ['e1', 'e2'], ['c1'])).toBe('structure_id=s&start_at=a&end_at=b&student_id=e1&student_id=e2&group_id=c1');
+  });
+});
