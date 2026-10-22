@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { Pager } from '../components/Pager';
 import { dateFr, heure, schoolYear } from '../utils';
+import { useStructure } from '../structure';
 
 /**
  * Régularisation des absences (parité IHM AngularJS) : liste des absences non régularisées
@@ -15,7 +16,7 @@ export function Regularisation() {
   const { t } = useTranslation(['presences', 'common']);
   const { user, init } = useEdificeClient();
   const qc = useQueryClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   // Fenêtre par défaut : année scolaire en cours (large, pour retrouver toutes les absences).
   const [start, setStart] = useState(schoolYear().start);

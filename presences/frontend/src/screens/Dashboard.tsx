@@ -6,13 +6,14 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { ouiNon, seuil, visibleByLabel } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { useStructure } from '../structure';
 
 /** Paramétrage des présences : motifs d'absence (créer/supprimer), actions, dispositifs, réglages d'alerte. */
 export function Dashboard() {
   const { t } = useTranslation(['presences', 'common']);
   const { user, init } = useEdificeClient();
   const qc = useQueryClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   const reasonsQuery = useQuery({ queryKey: ['pres', 'reasons', structureId], queryFn: () => api.getReasons(structureId), enabled: !!structureId });
   const actionsQuery = useQuery({ queryKey: ['pres', 'actions', structureId], queryFn: () => api.getActions(structureId), enabled: !!structureId });

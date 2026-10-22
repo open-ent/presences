@@ -19,6 +19,7 @@ import {
   withTime,
 } from '../register';
 import { heure, todayIso } from '../utils';
+import { useStructure } from '../structure';
 
 /**
  * Registre d'appel : pour une date, les cours (source EDT) → ouverture de l'appel d'un cours (le registre existant est
@@ -30,7 +31,7 @@ export function Registre() {
   const { t } = useTranslation(['presences', 'common']);
   const { user } = useEdificeClient();
   const qc = useQueryClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
   const isTeacher = user?.type === 'ENSEIGNANT';
 
   const [date, setDate] = useState(todayIso());

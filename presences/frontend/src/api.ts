@@ -531,6 +531,47 @@ export interface PresenceItem {
 export const getPresences = async (structureId: string, startDate: string, endDate: string): Promise<PresenceItem[]> =>
   json<PresenceItem[]>(await fetch(`/presences/presences?structureId=${structureId}&startDate=${startDate}&endDate=${endDate}`, base));
 
+// ── Suivi d'un élève (élève ou parent) ───────────────────────────────────────
+/** Catégories d'événements d'un élève, comme l'IHM AngularJS (`NO_REASON`… côté serveur). */
+export const STUDENT_EVENT_TYPES = ['NO_REASON', 'UNREGULARIZED', 'REGULARIZED', 'LATENESS', 'DEPARTURE'] as const;
+export type StudentEventType = (typeof STUDENT_EVENT_TYPES)[number];
+
+export interface StudentEvent {
+  id?: number;
+  start_date?: string;
+  end_date?: string;
+  reason?: { label?: string } | string | null;
+  comment?: string | null;
+}
+
+export interface StudentEvents {
+  all: Partial<Record<StudentEventType, StudentEvent[]>>;
+  totals: Partial<Record<StudentEventType, number>>;
+}
+
+/** Événements d'un élève sur une période, par catégorie (`GET /presences/students/:id/events`). */
+export const getStudentEvents = async (structureId: string, studentId: string, startAt: string, endAt: string): Promise<StudentEvents> => {
+  const types = STUDENT_EVENT_TYPES.map((ty) => `&type=${ty}`).join('');
+  const data = await json<Partial<StudentEvents>>(
+    await fetch(`/presences/students/${studentId}/events?structure_id=${structureId}&start_at=${startAt}&end_at=${endAt}${types}`, base),
+  );
+  return { all: data.all ?? {}, totals: data.totals ?? {} };
+};
+
+/** Enfant d'un responsable (`GET /presences/children?relativeId=`). */
+export interface Child {
+  id: string;
+  displayName: string;
+  structureId?: string;
+}
+
+export const getChildren = async (relativeId: string): Promise<Child[]> =>
+  json<Array<{ id: string; displayName?: string; firstName?: string; lastName?: string; structure?: { id?: string } }>>(
+    await fetch(`/presences/children?relativeId=${relativeId}`, base),
+  ).then((arr) =>
+    (arr ?? []).map((c) => ({ id: c.id, displayName: c.displayName ?? `${c.lastName ?? ''} ${c.firstName ?? ''}`.trim(), structureId: c.structure?.id })),
+  );
+
 export const api = {
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
@@ -541,5 +582,5 @@ export const api = {
   getAlertSummary, getForgottenRegisters, getStatements,
   getEvents, getEventsPage, regularizeEvents,
   getExemptions, createExemption, getSubjects,
-  getPresences,
+  getPresences, getStudentEvents, getChildren,
 };

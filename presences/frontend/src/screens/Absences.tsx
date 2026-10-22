@@ -6,13 +6,14 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { visibleByLabel, schoolYear } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { useStructure } from '../structure';
 
 /** Saisie d'absences : recherche élève → création d'une absence + liste. Nécessite droit ADML/vie sco. */
 export function Absences() {
   const { t } = useTranslation(['presences', 'common']);
   const { user, init } = useEdificeClient();
   const qc = useQueryClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   const [search, setSearch] = useState('');
   const [studentId, setStudentId] = useState('');

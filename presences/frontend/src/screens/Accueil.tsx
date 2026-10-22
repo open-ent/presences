@@ -7,6 +7,8 @@ import { Link } from 'react-router-dom';
 import { api, ForgottenRegister, Statement } from '../api';
 import { ALERT_TYPES, alerteLabel, classeLabel, dateFr, eleveNom, heure, jour } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { useRights } from '../rights';
+import { useStructure } from '../structure';
 
 /**
  * Tableau de bord d'accueil des présences (parité IHM AngularJS) :
@@ -18,7 +20,8 @@ import { QueryErrors } from '../components/QueryErrors';
 export function Accueil() {
   const { t } = useTranslation(['presences', 'common']);
   const { user, init } = useEdificeClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
+  const rights = useRights();
 
   // Plage du jour (les appels oubliés et déclarations récentes sont du jour courant).
   const { start, end } = useMemo(() => {
@@ -26,14 +29,14 @@ export function Accueil() {
     return { start: jour(now), end: jour(now) };
   }, []);
 
-  const summaryQuery = useQuery({ queryKey: ['pres', 'alert-summary', structureId], queryFn: () => api.getAlertSummary(structureId), enabled: !!structureId });
-  const forgottenQuery = useQuery({ queryKey: ['pres', 'forgotten', structureId, start], queryFn: () => api.getForgottenRegisters(structureId, start, end), enabled: !!structureId });
-  const statementsQuery = useQuery({ queryKey: ['pres', 'statements', structureId, start], queryFn: () => api.getStatements(structureId, start, end, false), enabled: !!structureId });
+  const summaryQuery = useQuery({ queryKey: ['pres', 'alert-summary', structureId], queryFn: () => api.getAlertSummary(structureId), enabled: !!structureId && rights.widgetAlerts });
+  const forgottenQuery = useQuery({ queryKey: ['pres', 'forgotten', structureId, start], queryFn: () => api.getForgottenRegisters(structureId, start, end), enabled: !!structureId && rights.widgetForgottenRegisters });
+  const statementsQuery = useQuery({ queryKey: ['pres', 'statements', structureId, start], queryFn: () => api.getStatements(structureId, start, end, false), enabled: !!structureId && rights.widgetStatements });
   // Absences du jour (parité Angular : compteur « Nombre d'absents » en tête de tableau de bord).
-  const todayEventsQuery = useQuery({ queryKey: ['pres', 'events-today', structureId, start], queryFn: () => api.getEvents(structureId, start, end), enabled: !!structureId });
+  const todayEventsQuery = useQuery({ queryKey: ['pres', 'events-today', structureId, start], queryFn: () => api.getEvents(structureId, start, end), enabled: !!structureId && rights.readEvent });
   // Appels du jour (cours de la journée) + présences saisies du jour.
-  const coursesQuery = useQuery({ queryKey: ['pres', 'courses-today', structureId, start], queryFn: () => api.getCourses(structureId, start), enabled: !!structureId });
-  const presencesQuery = useQuery({ queryKey: ['pres', 'presences-today', structureId, start], queryFn: () => api.getPresences(structureId, start, end), enabled: !!structureId });
+  const coursesQuery = useQuery({ queryKey: ['pres', 'courses-today', structureId, start], queryFn: () => api.getCourses(structureId, start), enabled: !!structureId && rights.widgetDayCourses });
+  const presencesQuery = useQuery({ queryKey: ['pres', 'presences-today', structureId, start], queryFn: () => api.getPresences(structureId, start, end), enabled: !!structureId && rights.widgetDayPresences });
 
   const summary = summaryQuery.data ?? {};
   const forgotten = forgottenQuery.data ?? [];
@@ -60,20 +63,28 @@ export function Accueil() {
     <div>
       <div className="d-flex align-items-center justify-content-between flex-wrap gap-8 mb-16">
         <h1 className="m-0">{t('presences.dashboard.title', { defaultValue: 'Tableau de bord' })}</h1>
-      <QueryErrors queries={[summaryQuery, forgottenQuery, statementsQuery, todayEventsQuery, coursesQuery, presencesQuery]} />
+      <QueryErrors queries={[rights.widgetAlerts && summaryQuery, rights.widgetForgottenRegisters && forgottenQuery, rights.widgetStatements && statementsQuery, rights.readEvent && todayEventsQuery, rights.widgetDayCourses && coursesQuery, rights.widgetDayPresences && presencesQuery].filter((q): q is typeof summaryQuery => !!q)} />
         {/* Parité Angular : date du jour + nombre d'absents du jour */}
         <div className="d-flex align-items-center gap-16">
           <strong style={{ textTransform: 'capitalize' }}>
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </strong>
-          <span className="badge bg-secondary" style={{ fontSize: 13 }}>
-            {t('presences.absents.today', { defaultValue: "Nombre d'absents :" })} {absentsToday}
-          </span>
+          {rights.readEvent && (
+            <span className="badge bg-secondary" style={{ fontSize: 13 }}>
+              {t('presences.absents.today', { defaultValue: "Nombre d'absents :" })} {absentsToday}
+            </span>
+          )}
         </div>
       </div>
 
+      {rights.ready && !rights.staff && (
+        <div className="alert alert-info" role="status" data-no-rights>
+          {t('presences.no.rights', { defaultValue: "Votre compte n'a accès à aucune fonction de ce module." })}
+        </div>
+      )}
       {/* Synthèse des alertes : une carte KPI par type de seuil franchi */}
-      <section className="mb-24">
+      {rights.widgetAlerts && (
+<section className="mb-24">
         <h2 style={{ fontSize: 18 }} className="mb-12">{t('presences.alerts', { defaultValue: 'Alertes' })}</h2>
         {summaryQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
         <div className="d-flex gap-16 flex-wrap">
@@ -88,10 +99,12 @@ export function Accueil() {
           })}
         </div>
       </section>
+)}
 
       <div className="d-flex gap-16 flex-wrap align-items-start">
         {/* Appels oubliés du jour */}
-        <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
+        {rights.widgetForgottenRegisters && (
+<section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.forgotten.registers', { defaultValue: 'Appels oubliés du jour' })}{' '}
             <span className="text-muted" style={{ fontSize: 14 }}>({forgotten.length})</span>
@@ -114,9 +127,11 @@ export function Accueil() {
             </ul>
           )}
         </section>
+)}
 
         {/* Déclarations d'absence des parents à traiter */}
-        <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
+        {rights.widgetStatements && (
+<section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.statements.title', { defaultValue: "Déclarations d'absence des parents" })}{' '}
             <span className="text-muted" style={{ fontSize: 14 }}>({statements.length})</span>
@@ -141,9 +156,11 @@ export function Accueil() {
             </ul>
           )}
         </section>
+)}
 
         {/* Appels du jour : cours de la journée avec l'état de l'appel (parité Angular) */}
-        <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
+        {rights.widgetDayCourses && (
+<section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.today.calls', { defaultValue: 'Appels du jour' })}{' '}
             <span className="text-muted" style={{ fontSize: 14 }}>({courses.length})</span>
@@ -168,9 +185,11 @@ export function Accueil() {
             </ul>
           )}
         </section>
+)}
 
         {/* Présences du jour : présences saisies (parité Angular) */}
-        <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
+        {rights.widgetDayPresences && (
+<section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.today.presences', { defaultValue: 'Présences du jour' })}{' '}
             <span className="text-muted" style={{ fontSize: 14 }}>({presences.length})</span>
@@ -190,6 +209,7 @@ export function Accueil() {
             </ul>
           )}
         </section>
+)}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { api } from '../api';
 import { dateFr, heure, ouiNon, schoolYear } from '../utils';
 import { Pager } from '../components/Pager';
 import { QueryErrors } from '../components/QueryErrors';
+import { useStructure } from '../structure';
 
 /**
  * Incidents — parité IHM AngularJS (CCTP 51C) : liste des incidents de la structure sur une
@@ -17,7 +18,7 @@ export function Incidents() {
   const { t } = useTranslation(['incidents', 'common']);
   const { user, init } = useEdificeClient();
   const qc = useQueryClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
   const ownerId = (user as { userId?: string } | undefined)?.userId ?? '';
 
   const [start, setStart] = useState(schoolYear().start);

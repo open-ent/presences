@@ -7,6 +7,7 @@ import { api } from '../api';
 import { dateFr, schoolYear } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
 import { Pager } from '../components/Pager';
+import { useStructure } from '../structure';
 
 /**
  * Punitions / sanctions — parité IHM AngularJS (CCTP 51C) : liste des punitions de la structure
@@ -15,7 +16,7 @@ import { Pager } from '../components/Pager';
 export function Punitions() {
   const { t } = useTranslation(['incidents', 'common']);
   const { user, init } = useEdificeClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);

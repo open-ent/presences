@@ -7,6 +7,7 @@ import { api } from '../api';
 import { Pager } from '../components/Pager';
 import { dateFr, schoolYear, todayIso } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { useStructure } from '../structure';
 
 /**
  * Dispenses (exemptions) — parité IHM AngularJS : liste des dispenses de la structure
@@ -17,7 +18,7 @@ export function Dispenses() {
   const { t } = useTranslation(['presences', 'common']);
   const { user, init } = useEdificeClient();
   const qc = useQueryClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);

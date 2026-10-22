@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { api, MASSMAILING_TYPES, MassmailingType } from '../api';
 import { totalCount, typeLabel, schoolYear } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { useStructure } from '../structure';
 
 /**
  * Publipostage — parité IHM AngularJS (CCTP 51C) : sélection du type d'événement, de la période
@@ -15,7 +16,7 @@ import { QueryErrors } from '../components/QueryErrors';
 export function Publipostage() {
   const { t } = useTranslation(['massmailing', 'common']);
   const { user, init } = useEdificeClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   const [type, setType] = useState<MassmailingType>('UNREGULARIZED');
   const [startAt, setStartAt] = useState(1);

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api, STAT_TYPES, StatType } from '../api';
 import { statCount, statLabel, statTotal, schoolYear } from '../utils';
+import { useStructure } from '../structure';
 
 /**
  * Statistiques de présences — parité IHM AngularJS (CCTP 51C) : indicateur Global de la
@@ -14,7 +15,7 @@ import { statCount, statLabel, statTotal, schoolYear } from '../utils';
 export function Statistiques() {
   const { t } = useTranslation(['statistics-presences', 'common']);
   const { user, init } = useEdificeClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);

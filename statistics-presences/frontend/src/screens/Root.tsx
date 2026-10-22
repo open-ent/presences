@@ -6,6 +6,7 @@ import {
   useEdificeClient,
 } from '@open-ent/react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { StructureSelect } from '../structure';
 
 /** Gabarit commun : bandeau ENT (Layout + AppHeader + fil d'Ariane) + navigation + contenu. */
 export function Root() {
@@ -24,6 +25,7 @@ export function Root() {
         </div>
         <div className="flex-grow-1 overflow-auto">
           <div className="container py-16">
+            <StructureSelect />
             <nav className="btn-group mb-16" aria-label="Navigation statistiques">
               {tab('/', 'Statistiques', true)}
             </nav>

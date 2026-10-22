@@ -7,9 +7,13 @@ import {
 } from '@open-ent/react';
 import { NavLink, Outlet } from 'react-router-dom';
 
+import { useRights } from '../rights';
+import { StructureSelect } from '../structure';
+
 /** Gabarit commun : bandeau ENT (Layout + AppHeader + fil d'Ariane) + navigation + contenu. */
 export function Root() {
-  const { currentApp, init } = useEdificeClient();
+  const { currentApp, init, user } = useEdificeClient();
+  const rights = useRights();
   if (!init) return <LoadingScreen />;
 
   const tab = (to: string, label: string, end?: boolean) => (
@@ -24,14 +28,15 @@ export function Root() {
         </div>
         <div className="flex-grow-1 overflow-auto">
           <div className="container py-16">
-            <nav className="btn-group mb-16" aria-label="Navigation présences">
+            <StructureSelect />
+            {!(user?.type === 'ELEVE' || user?.type === 'PERSRELELEVE') && <nav className="btn-group mb-16" aria-label="Navigation présences">
               {tab('/', 'Tableau de bord', true)}
-              {tab('/registre', "Registre d'appel")}
-              {tab('/absences', 'Absences')}
-              {tab('/regularisation', 'Régularisation')}
-              {tab('/dispenses', 'Dispenses')}
-              {tab('/parametrage', 'Paramétrage')}
-            </nav>
+              {rights.readRegister && tab('/registre', "Registre d'appel")}
+              {rights.absences && tab('/absences', 'Absences')}
+              {rights.readEvent && tab('/regularisation', 'Régularisation')}
+              {rights.readExemption && tab('/dispenses', 'Dispenses')}
+              {rights.absences && tab('/parametrage', 'Paramétrage')}
+            </nav>}
             <Outlet />
           </div>
         </div>

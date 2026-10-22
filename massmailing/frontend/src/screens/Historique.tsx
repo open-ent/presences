@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { dateFr, typeLabel, schoolYear } from '../utils';
 import { Pager } from '../components/Pager';
+import { useStructure } from '../structure';
 
 /**
  * Historique des publipostages — parité IHM AngularJS (CCTP 51C) : envois passés sur une
@@ -14,7 +15,7 @@ import { Pager } from '../components/Pager';
 export function Historique() {
   const { t } = useTranslation(['massmailing', 'common']);
   const { user, init } = useEdificeClient();
-  const structureId = user?.structures?.[0] ?? '';
+  const { structureId } = useStructure();
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);
