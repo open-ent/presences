@@ -6,11 +6,11 @@ import { useSearchParams } from 'react-router-dom';
 
 import { AlertType, ALERT_TYPES_LIST, addAudiences, audienceSelection, alertKey, alertParams, mergeAlerts, punishLink, resetBody, selectedStudents, typesFromParam } from '../alerts';
 import { api } from '../api';
+import { AudienceSearch, PickedAudience } from '../components/AudienceSearch';
 import { QueryErrors } from '../components/QueryErrors';
+import { PickedStudent, StudentSearch } from '../components/StudentSearch';
 import { useStructure } from '../structure';
 import { alerteLabel, jour, schoolYear } from '../utils';
-
-type Person = { id: string; name: string };
 
 /**
  * Alertes (parité IHM AngularJS) : élèves qui franchissent un seuil (absences, retards, incidents, oublis de carnet),
@@ -26,10 +26,8 @@ export function Alertes() {
   const [types, setTypes] = useState<AlertType[]>(() => typesFromParam(params.get('type')));
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(jour(new Date()));
-  const [students, setStudents] = useState<Person[]>([]);
-  const [classes, setClasses] = useState<Person[]>([]);
-  const [studentSearch, setStudentSearch] = useState('');
-  const [classSearch, setClassSearch] = useState('');
+  const [students, setStudents] = useState<PickedStudent[]>([]);
+  const [classes, setClasses] = useState<PickedAudience[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState('');
 
@@ -42,20 +40,9 @@ export function Alertes() {
     getNextPageParam: (last, all) => (last.all.length >= 20 ? all.length : undefined),
     enabled: !!structureId && types.length > 0,
   });
-  const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
-  const audienceTerm = classSearch.trim();
-  const classesQuery = useQuery({ queryKey: ['pres', 'audiences', structureId, audienceTerm], queryFn: () => api.searchAudiences(structureId, audienceTerm), enabled: !!structureId && audienceTerm.length >= 1 });
-
   const alerts = (listQuery.data?.pages ?? []).reduce<ReturnType<typeof mergeAlerts>>((acc, p) => mergeAlerts(acc, p.all), []).filter((a) => a.name);
   const chosen = alerts.filter((a) => selected.has(alertKey(a)));
   const allChecked = alerts.length > 0 && chosen.length === alerts.length;
-
-  const results = useMemo(() => {
-    const q = studentSearch.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return (studentsQuery.data ?? []).filter((s) => s.displayName.toLowerCase().includes(q) && !students.some((x) => x.id === s.id)).slice(0, 10);
-  }, [studentsQuery.data, studentSearch, students]);
-  const classResults = (classesQuery.data ?? []).filter((c) => !!c.members || !classes.some((x) => x.id === c.id)).slice(0, 10);
 
   const resetMut = useMutation({
     mutationFn: () => api.resetAlerts(structureId, resetBody(chosen, start, end)),
@@ -77,28 +64,14 @@ export function Alertes() {
 
       <div className="d-flex gap-24 flex-wrap mb-12">
         <div style={{ minWidth: 260 }}>
-          <label htmlFor="al-student" className="form-label">{t('presences.exemptions.search.student', { defaultValue: 'Rechercher un élève' })}</label>
-          <input id="al-student" className="form-control" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} autoComplete="off" />
-          {results.length > 0 && (
-            <ul className="list-unstyled border mb-0" data-student-results>
-              {results.map((s) => <li key={s.id}><button type="button" className="btn btn-link" data-pick-student={s.id} onClick={() => { setStudents([...students, { id: s.id, name: s.displayName }]); setStudentSearch(''); changed(); }}>{s.displayName}</button></li>)}
-            </ul>
-          )}
-          <div className="d-flex gap-8 flex-wrap mt-8" data-chosen-students>
-            {students.map((s) => <span key={s.id} className="badge bg-secondary">{s.name} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${s.name}`} onClick={() => { setStudents(students.filter((x) => x.id !== s.id)); changed(); }}>×</button></span>)}
-          </div>
+          <StudentSearch
+            id="al-student" label={t('presences.exemptions.search.student', { defaultValue: 'Rechercher un élève' })} structureId={structureId} selected={students}
+            pickAttr="data-pick-student" chipsAttr="data-chosen-students" resultsAttr="data-student-results"
+            onAdd={(x) => { setStudents([...students, x]); changed(); }} onRemove={(x) => { setStudents(students.filter((y) => y.id !== x.id)); changed(); }}
+          />
         </div>
         <div style={{ minWidth: 260 }}>
-          <label htmlFor="al-class" className="form-label">{t('presences.exemptions.search.audience', { defaultValue: 'Rechercher une classe, un groupe ou un regroupement' })}</label>
-          <input id="al-class" className="form-control" value={classSearch} onChange={(e) => setClassSearch(e.target.value)} autoComplete="off" />
-          {classResults.length > 0 && (
-            <ul className="list-unstyled border mb-0" data-class-results>
-              {classResults.map((c) => <li key={c.id}><button type="button" className="btn btn-link" data-pick-class={c.id} onClick={() => { setClasses(addAudiences(classes, audienceSelection(c))); setClassSearch(''); changed(); }}>{c.name}{c.members ? ' (regroupement)' : ''}</button></li>)}
-            </ul>
-          )}
-          <div className="d-flex gap-8 flex-wrap mt-8" data-chosen-classes>
-            {classes.map((c) => <span key={c.id} className="badge bg-secondary">{c.name} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${c.name}`} onClick={() => { setClasses(classes.filter((x) => x.id !== c.id)); changed(); }}>×</button></span>)}
-          </div>
+          <AudienceSearch id="al-class" label={t('presences.exemptions.search.audience', { defaultValue: 'Rechercher une classe, un groupe ou un regroupement' })} structureId={structureId} selected={classes} onChange={(next) => { setClasses(next); changed(); }} />
         </div>
       </div>
 

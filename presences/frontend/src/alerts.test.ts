@@ -20,6 +20,7 @@ describe('alerts', () => {
   it('prépare la remise à zéro et le lien de punition', () => {
     expect(resetBody([a('e1', 'ABSENCE')], '2026-09-01', '2026-10-22')).toEqual({ start_at: '2026-09-01', end_at: '2026-10-22', deleted_alert: [a('e1', 'ABSENCE')] });
     expect(punishLink([{ id: 'e1' }, { id: 'e2' }])).toBe('/incidents?ui=react#/punitions?students=e1,e2');
+    expect(punishLink([{ id: 'e1', name: 'DUPONT Léa' }])).toBe('/incidents?ui=react#/punitions?students=e1~DUPONT%20L%C3%A9a');
   });
   it('lit le type demandé par une carte de l’accueil', () => {
     expect(typesFromParam('LATENESS')).toEqual(['LATENESS']);

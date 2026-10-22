@@ -7,6 +7,7 @@ import { api } from '../api';
 import { Pager } from '../components/Pager';
 import { dateFr, schoolYear, todayIso } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { StudentSearch } from '../components/StudentSearch';
 import { useStructure } from '../structure';
 
 /**
@@ -29,13 +30,13 @@ export function Dispenses() {
     queryFn: () => api.getExemptions(structureId, start, end, page),
     enabled: !!structureId,
   });
-  const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
   const subjectsQuery = useQuery({ queryKey: ['pres', 'subjects', structureId], queryFn: () => api.getSubjects(structureId), enabled: !!structureId });
 
   const exemptions = exemptionsQuery.data?.items ?? [];
 
   // Formulaire de création
   const [studentId, setStudentId] = useState('');
+  const [studentName, setStudentName] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [exStart, setExStart] = useState(todayIso());
   const [exEnd, setExEnd] = useState(schoolYear().end);
@@ -74,7 +75,7 @@ export function Dispenses() {
   return (
     <div>
       <h1 className="mb-16">{t('presences.exemptions.title', { defaultValue: 'Dispenses' })}</h1>
-      <QueryErrors queries={[exemptionsQuery, studentsQuery, subjectsQuery]} />
+      <QueryErrors queries={[exemptionsQuery, subjectsQuery]} />
 
       {/* Création d'une dispense */}
       <section className="card p-16 mb-24">
@@ -82,11 +83,10 @@ export function Dispenses() {
         <form onSubmit={onCreate} className="d-flex flex-column gap-12">
           <div className="d-flex gap-12 flex-wrap">
             <div style={{ minWidth: 240 }} className="flex-grow-1">
-              <label htmlFor="ex-student" className="form-label">{t('presences.student', { defaultValue: 'Élève' })}</label>
-              <select id="ex-student" className="form-select" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-                <option value="">{t('presences.choose', { defaultValue: 'Choisir…' })}</option>
-                {(studentsQuery.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
-              </select>
+              <StudentSearch
+                id="ex-student" label={t('presences.student', { defaultValue: 'Élève' })} structureId={structureId} single
+                selected={studentId ? [{ id: studentId, name: studentName }] : []} onAdd={(st) => { setStudentId(st.id); setStudentName(st.name); }}
+              />
             </div>
             <div style={{ minWidth: 240 }} className="flex-grow-1">
               <label htmlFor="ex-subject" className="form-label">{t('presences.subject', { defaultValue: 'Matière' })}</label>

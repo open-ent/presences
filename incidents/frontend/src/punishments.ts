@@ -225,3 +225,11 @@ export function absenceStatus(absences: AbsenceInfo[], start: string, end: strin
 
 /** Élèves qui ont déjà au moins une absence sur la période (pas de nouvelle absence pour eux). */
 export const anomalyStudents = (byStudent: Record<string, AbsenceInfo[]>): string[] => Object.keys(byStudent).filter((id) => (byStudent[id] ?? []).length > 0);
+
+/** Un résultat de recherche d'audience : une classe ou un groupe, ou un regroupement (avec les classes qui le composent). */
+export interface AudienceHit { id: string; name: string; members?: Array<{ id: string; name: string }> }
+
+/** Un regroupement choisi est remplacé par ses classes (comme l'AngularJS) ; une classe ou un groupe reste tel quel. */
+export function audienceSelection(hit: AudienceHit): Array<{ id: string; name: string }> {
+  return hit.members && hit.members.length > 0 ? hit.members.map((m) => ({ id: m.id, name: m.name })) : [{ id: hit.id, name: hit.name }];
+}

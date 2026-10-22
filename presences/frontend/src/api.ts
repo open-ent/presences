@@ -139,14 +139,17 @@ export const deleteDiscipline = async (id: number): Promise<void> => {
 };
 
 // ── Saisie d'absences (nécessite droit ADML / vie sco) ──────────────────────────
-/** Élèves de la structure (annuaire), triés par nom. */
-export const getStudents = async (structureId: string): Promise<Eleve[]> =>
-  json<Array<{ id: string; type?: string; displayName?: string }>>(
-    await fetch(`/directory/structure/${structureId}/users`, base),
-  ).then((arr) =>
-    arr.filter((u) => u.type === 'Student').map((u) => ({ id: u.id, displayName: u.displayName ?? u.id }))
-      .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr', { sensitivity: 'base' })),
-  );
+/** Élève trouvé par la recherche : nom d'affichage et première classe. */
+export interface StudentHit { id: string; displayName: string; classe?: string }
+
+/**
+ * Recherche d'élèves côté serveur (GET /presences/search/students), restreinte aux élèves que le compte peut voir
+ * (un enseignant ne trouve que les siens). Remplace le téléchargement de l'annuaire complet.
+ */
+export const searchStudents = async (structureId: string, q: string): Promise<StudentHit[]> =>
+  json<Array<{ id: string; displayName?: string; firstName?: string; lastName?: string; classesNames?: string[] }>>(
+    await fetch(`/presences/search/students?structureId=${structureId}&q=${encodeURIComponent(q.trim())}&field=firstName&field=lastName`, base),
+  ).then((arr) => (arr ?? []).map((u) => ({ id: u.id, displayName: u.displayName ?? `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim(), classe: u.classesNames?.[0] })));
 
 /** Absences d'un élève sur une période. */
 export const getStudentAbsences = async (structureId: string, studentId: string, start: string, end: string): Promise<Absence[]> => {
@@ -690,7 +693,7 @@ export const api = {
   createReason, deleteReason,
   createAction, deleteAction,
   createDiscipline, deleteDiscipline,
-  getStudents, getStudentAbsences, createAbsence,
+  searchStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
   getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,

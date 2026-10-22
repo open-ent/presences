@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { visibleByLabel, schoolYear } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
+import { StudentSearch } from '../components/StudentSearch';
 import { useStructure } from '../structure';
 
 /** Saisie d'absences : recherche élève → création d'une absence + liste. Nécessite droit ADML/vie sco. */
@@ -15,7 +16,6 @@ export function Absences() {
   const qc = useQueryClient();
   const { structureId } = useStructure();
 
-  const [search, setSearch] = useState('');
   const [studentId, setStudentId] = useState('');
   const [studentName, setStudentName] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -23,7 +23,6 @@ export function Absences() {
   const [reasonId, setReasonId] = useState<number | ''>('');
   const [formError, setFormError] = useState('');
 
-  const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
   const reasonsQuery = useQuery({ queryKey: ['pres', 'reasons', structureId], queryFn: () => api.getReasons(structureId), enabled: !!structureId });
   const reasons = visibleByLabel(reasonsQuery.data ?? []);
 
@@ -33,12 +32,6 @@ export function Absences() {
     queryFn: () => api.getStudentAbsences(structureId, studentId, schoolYear().start, schoolYear().end),
     enabled: !!structureId && !!studentId,
   });
-
-  const results = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return (studentsQuery.data ?? []).filter((s) => s.displayName.toLowerCase().includes(q)).slice(0, 20);
-  }, [studentsQuery.data, search]);
 
   const toDatetime = (d: string, time: string) => (d ? `${d} ${time}` : '');
   const createMut = useMutation({
@@ -58,21 +51,15 @@ export function Absences() {
   return (
     <div>
       <h1 className="mb-16">{t('presences.absences.title', { defaultValue: 'Saisie des absences' })}</h1>
-      <QueryErrors queries={[studentsQuery, reasonsQuery, absencesQuery]} />
+      <QueryErrors queries={[reasonsQuery, absencesQuery]} />
 
-      {/* Recherche d'élève */}
-      <div className="mb-16" style={{ maxWidth: 520, position: 'relative' }}>
-        <label htmlFor="abs-search" className="form-label">{t('presences.absence.search', { defaultValue: 'Rechercher un élève' })}</label>
-        <input id="abs-search" className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" placeholder={t('presences.absence.search.ph', { defaultValue: 'Nom de l’élève (min. 2 caractères)' })} />
-        {results.length > 0 && (
-          <ul className="list-unstyled border rounded bg-white" style={{ position: 'absolute', zIndex: 5, width: '100%', maxHeight: 260, overflowY: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,.12)' }}>
-            {results.map((s) => (
-              <li key={s.id}>
-                <button type="button" className="btn btn-link text-start w-100 px-12 py-4" onClick={() => { setStudentId(s.id); setStudentName(s.displayName); setSearch(s.displayName); }}>{s.displayName}</button>
-              </li>
-            ))}
-          </ul>
-        )}
+      {/* Recherche d'élève (côté serveur) */}
+      <div className="mb-16" style={{ maxWidth: 520 }}>
+        <StudentSearch
+          id="abs-search" label={t('presences.absence.search', { defaultValue: 'Rechercher un élève' })} structureId={structureId} single
+          placeholder={t('presences.absence.search.ph', { defaultValue: 'Nom de l’élève (min. 2 caractères)' })}
+          selected={studentId ? [{ id: studentId, name: studentName }] : []} onAdd={(st) => { setStudentId(st.id); setStudentName(st.name); }}
+        />
       </div>
 
       {!studentId && <p className="text-muted">{t('presences.absence.select', { defaultValue: 'Sélectionnez un élève pour saisir une absence.' })}</p>}

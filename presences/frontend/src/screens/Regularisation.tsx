@@ -4,7 +4,9 @@ import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
+import { AudienceSearch, PickedAudience } from '../components/AudienceSearch';
 import { Pager } from '../components/Pager';
+import { PickedStudent, StudentSearch } from '../components/StudentSearch';
 import { EventFilters, EventKind, FollowedFilter, KIND_TYPE_ID, RegularizedFilter, exportUrl, filterParams, hasNothingToLoad, toggleKind } from '../eventFilters';
 import { dateFr, heure, schoolYear, visibleByLabel } from '../utils';
 import { useStructure } from '../structure';
@@ -36,9 +38,8 @@ export function Regularisation() {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [bulkReason, setBulkReason] = useState('');
   const [page, setPage] = useState(0);
-  const [studentIds, setStudentIds] = useState<string[]>([]);
-  const [studentSearch, setStudentSearch] = useState('');
-  const [classIds, setClassIds] = useState<string[]>([]);
+  const [students, setStudents] = useState<PickedStudent[]>([]);
+  const [classes, setClasses] = useState<PickedAudience[]>([]);
   const [followed, setFollowed] = useState<FollowedFilter>('all');
   const [startSlot, setStartSlot] = useState('');
   const [endSlot, setEndSlot] = useState('');
@@ -50,21 +51,13 @@ export function Regularisation() {
   const slots = slotsQuery.data ?? [];
   const startTime = slots.find((x) => x.id === startSlot)?.startHour;
   const endTime = slots.find((x) => x.id === endSlot)?.endHour;
-  const filters: EventFilters = { structureId, start, end, kinds, regularized, reasonIds, noReason, studentIds, classIds, followed, startTime, endTime };
+  const filters: EventFilters = { structureId, start, end, kinds, regularized, reasonIds, noReason, studentIds: students.map((x) => x.id), classIds: classes.map((x) => x.id), followed, startTime, endTime };
   const params = filterParams(filters);
   const typeIds = kinds.map((k) => KIND_TYPE_ID[k]);
   const resetPage = () => { setPage(0); setChecked(new Set()); };
 
-  const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
-  const classesQuery = useQuery({ queryKey: ['pres', 'classes', structureId], queryFn: () => api.getClasses(structureId), enabled: !!structureId });
   const actionsTypesQuery = useQuery({ queryKey: ['pres', 'actions', structureId], queryFn: () => api.getActions(structureId), enabled: !!structureId });
   const historyQuery = useQuery({ queryKey: ['pres', 'event-actions', actionFor], queryFn: () => api.getEventActions(actionFor as number), enabled: actionFor !== null });
-  const nameOf = (id: string) => studentsQuery.data?.find((x) => x.id === id)?.displayName ?? id;
-  const studentResults = useMemo(() => {
-    const q = studentSearch.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return (studentsQuery.data ?? []).filter((x) => x.displayName.toLowerCase().includes(q) && !studentIds.includes(x.id)).slice(0, 10);
-  }, [studentsQuery.data, studentSearch, studentIds]);
   const actionMut = useMutation({
     mutationFn: () => api.createEventAction([actionFor as number], Number(actionId), user?.userId ?? '', actionComment),
     onSuccess: () => { setActionId(''); setActionComment(''); qc.invalidateQueries({ queryKey: ['pres', 'event-actions', actionFor] }); invalidate(); },
@@ -167,29 +160,15 @@ export function Regularisation() {
           </>
         )}
         <div>
-          <label htmlFor="reg-filter-student" className="form-label">{t('presences.student', { defaultValue: 'Élève' })}</label>
-          <input id="reg-filter-student" className="form-control" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} autoComplete="off" />
-          {studentResults.length > 0 && (
-            <ul className="list-unstyled border mb-0" data-filter-results>
-              {studentResults.map((x) => (
-                <li key={x.id}><button type="button" className="btn btn-link" data-filter-student={x.id} onClick={() => { setStudentIds([...studentIds, x.id]); setStudentSearch(''); resetPage(); }}>{x.displayName}</button></li>
-              ))}
-            </ul>
-          )}
-          <div className="d-flex gap-8 flex-wrap mt-8" data-filter-students>
-            {studentIds.map((id) => (
-              <span key={id} className="badge bg-secondary">{nameOf(id)} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${nameOf(id)}`} onClick={() => { setStudentIds(studentIds.filter((x) => x !== id)); resetPage(); }}>×</button></span>
-            ))}
-          </div>
+          <StudentSearch
+            id="reg-filter-student" label={t('presences.student', { defaultValue: 'Élève' })} structureId={structureId} selected={students}
+            pickAttr="data-filter-student" chipsAttr="data-filter-students" resultsAttr="data-filter-results"
+            onAdd={(x) => { setStudents([...students, x]); resetPage(); }} onRemove={(x) => { setStudents(students.filter((y) => y.id !== x.id)); resetPage(); }}
+          />
         </div>
-        <details data-class-filter>
-          <summary>{t('presences.class', { defaultValue: 'Classe' })}{classIds.length > 0 ? ` (${classIds.length})` : ''}</summary>
-          {(classesQuery.data ?? []).map((c) => (
-            <label key={c.id} className="d-block">
-              <input type="checkbox" data-class={c.id} checked={classIds.includes(c.id)} onChange={() => { setClassIds(classIds.includes(c.id) ? classIds.filter((x) => x !== c.id) : [...classIds, c.id]); resetPage(); }} /> {c.name}
-            </label>
-          ))}
-        </details>
+        <div data-class-filter>
+          <AudienceSearch id="reg-filter-class" label={t('presences.class', { defaultValue: 'Classe' })} structureId={structureId} selected={classes} onChange={(next) => { setClasses(next); resetPage(); }} />
+        </div>
         <details data-reason-filter>
           <summary>{t('presences.reasons.filter', { defaultValue: 'Motifs' })}{reasonIds.length + (noReason ? 1 : 0) > 0 ? ` (${reasonIds.length + (noReason ? 1 : 0)})` : ''}</summary>
           <label className="d-block">

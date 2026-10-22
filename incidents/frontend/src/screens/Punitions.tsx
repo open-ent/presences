@@ -6,8 +6,9 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { QueryErrors } from '../components/QueryErrors';
+import { StudentSearch } from '../components/StudentSearch';
 import { Pager } from '../components/Pager';
-import { CATEGORY_LABEL, CategoryId, PunishmentForm, ProcessFilter, absenceStatus, anomalyStudents, emptyForm, emptySlot, formError, formFromPunishment, listParams } from '../punishments';
+import { audienceSelection, CATEGORY_LABEL, CategoryId, PunishmentForm, ProcessFilter, absenceStatus, anomalyStudents, emptyForm, emptySlot, formError, formFromPunishment, listParams } from '../punishments';
 import { canCreateType, useRights } from '../rights';
 import { useStructure } from '../structure';
 import { dateFr, schoolYear } from '../utils';
@@ -34,7 +35,9 @@ export function Punitions() {
   const rights = useRights();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [extraNames, setExtraNames] = useState<Record<string, string>>({});
+  // Noms des élèves choisis (la recherche serveur ne rend que les résultats du moment).
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [classNames, setClassNames] = useState<Record<string, string>>({});
 
   const [start, setStart] = useState(schoolYear().start);
   const [end, setEnd] = useState(schoolYear().end);
@@ -43,11 +46,10 @@ export function Punitions() {
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<PunishmentForm>(emptyForm(''));
-  const [search, setSearch] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [saved, setSaved] = useState<'created' | 'updated' | null>(null);
   const [studentIdsFilter, setStudentIdsFilter] = useState<string[]>([]);
-  const [studentFilterSearch, setStudentFilterSearch] = useState('');
+  const [classSearch, setClassSearch] = useState('');
   const [groupIds, setGroupIds] = useState<string[]>([]);
   /** Période d'exclusion d'origine d'une punition en cours de modification (pour retrouver l'absence liée). */
   const [oldPeriod, setOldPeriod] = useState<{ start: string; end: string } | null>(null);
@@ -56,8 +58,8 @@ export function Punitions() {
   const punishmentsQuery = useQuery({ queryKey: ['incidents', 'punishments', params, page], queryFn: () => api.getPunishments(params, page), enabled: !!structureId });
   const typesQuery = useQuery({ queryKey: ['incidents', 'punishment-types', structureId], queryFn: () => api.getPunishmentTypes(structureId), enabled: !!structureId });
   const placesQuery = useQuery({ queryKey: ['incidents', 'places', structureId], queryFn: () => api.getPlaces(structureId), enabled: !!structureId && creating });
-  const studentsQuery = useQuery({ queryKey: ['incidents', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
-  const classesQuery = useQuery({ queryKey: ['incidents', 'classes', structureId], queryFn: () => api.getClasses(structureId), enabled: !!structureId });
+  const audienceTerm = classSearch.trim();
+  const classesQuery = useQuery({ queryKey: ['incidents', 'audiences', structureId, audienceTerm], queryFn: () => api.searchAudiences(structureId, audienceTerm), enabled: !!structureId && audienceTerm.length >= 1 });
   const editing = form.editing;
   const isExclusion = creating && form.categoryId === 4;
   // Absences existantes de l'élève sur la période : en modification, celle de la période d'origine.
@@ -89,21 +91,12 @@ export function Punitions() {
   const deleteMut = useMutation({ mutationFn: (v: { p: (typeof punishments)[number]; all: boolean }) => (v.all ? api.deletePunishmentGroup(v.p.raw) : api.deletePunishment(v.p.raw)), onSuccess: invalidate });
   const createMut = useMutation({
     mutationFn: () => (form.editing ? api.updatePunishment(form) : api.createPunishment(form)),
-    onSuccess: () => { setSaved(form.editing ? 'updated' : 'created'); setCreating(false); setSubmitted(false); setSearch(''); invalidate(); },
+    onSuccess: () => { setSaved(form.editing ? 'updated' : 'created'); setCreating(false); setSubmitted(false); invalidate(); },
   });
 
-  const results = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return (studentsQuery.data ?? []).filter((s) => s.displayName.toLowerCase().includes(q) && !form.studentIds.includes(s.id)).slice(0, 10);
-  }, [studentsQuery.data, search, form.studentIds]);
-  const nameOf = (id: string) => studentsQuery.data?.find((s) => s.id === id)?.displayName ?? extraNames[id] ?? id;
-
-  const filterResults = useMemo(() => {
-    const q = studentFilterSearch.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return (studentsQuery.data ?? []).filter((st) => st.displayName.toLowerCase().includes(q) && !studentIdsFilter.includes(st.id)).slice(0, 10);
-  }, [studentsQuery.data, studentFilterSearch, studentIdsFilter]);
+  const nameOf = (id: string) => names[id] ?? id;
+  const remember = (s: { id: string; name: string }) => setNames((n) => ({ ...n, [s.id]: s.name }));
+  const classResults = (classesQuery.data ?? []).filter((c) => !!c.members || !groupIds.includes(c.id)).slice(0, 10);
 
   const err = formError(form);
   const set = (patch: Partial<PunishmentForm>) => setForm((f) => ({ ...f, ...patch }));
@@ -122,7 +115,7 @@ export function Punitions() {
   useEffect(() => {
     const incident = (location.state as { incident?: { id: number; students: Array<{ id: string; displayName: string }> } } | null)?.incident;
     if (!incident || !structureId || !rights.ready) return;
-    setExtraNames(Object.fromEntries(incident.students.map((x) => [x.id, x.displayName])));
+    setNames((n) => ({ ...n, ...Object.fromEntries(incident.students.map((x) => [x.id, x.displayName])) }));
     setForm({ ...emptyForm(structureId), studentIds: incident.students.map((x) => x.id), incidentId: incident.id });
     setOldPeriod(null);
     setSaved(null);
@@ -134,8 +127,11 @@ export function Punitions() {
   const linkedStudents = searchParams.get('students');
   useEffect(() => {
     if (!linkedStudents || !structureId || !rights.ready) return;
-    const ids = linkedStudents.split(',').filter(Boolean);
+    // `id~nom` (nom encodé) ; un identifiant seul reste utilisable.
+    const entries = linkedStudents.split(',').filter(Boolean).map((e) => { const [id, ...rest] = e.split('~'); return { id, name: rest.length > 0 ? decodeURIComponent(rest.join('~')) : id }; });
+    const ids = entries.map((e) => e.id);
     if (ids.length === 0) return;
+    setNames((n) => ({ ...n, ...Object.fromEntries(entries.map((e) => [e.id, e.name])) }));
     setForm({ ...emptyForm(structureId), studentIds: ids });
     setOldPeriod(null);
     setSaved(null);
@@ -182,29 +178,37 @@ export function Punitions() {
           </select>
         </div>
         <div>
-          <label htmlFor="pun-filter-student" className="form-label">{t('incidents.student', { defaultValue: 'Élève' })}</label>
-          <input id="pun-filter-student" className="form-control" value={studentFilterSearch} onChange={(e) => setStudentFilterSearch(e.target.value)} autoComplete="off" />
-          {filterResults.length > 0 && (
-            <ul className="list-unstyled border mb-0" data-filter-results>
-              {filterResults.map((st) => (
-                <li key={st.id}><button type="button" className="btn btn-link" data-filter-student={st.id} onClick={() => { setStudentIdsFilter([...studentIdsFilter, st.id]); setStudentFilterSearch(''); setPage(0); }}>{st.displayName}</button></li>
+          <StudentSearch
+            id="pun-filter-student" label={t('incidents.student', { defaultValue: 'Élève' })} structureId={structureId}
+            selected={studentIdsFilter.map((id) => ({ id, name: nameOf(id) }))} pickAttr="data-filter-student" chipsAttr="data-filter-students" resultsAttr="data-filter-results"
+            onAdd={(st) => { remember(st); setStudentIdsFilter([...studentIdsFilter, st.id]); setPage(0); }}
+            onRemove={(st) => { setStudentIdsFilter(studentIdsFilter.filter((x) => x !== st.id)); setPage(0); }}
+          />
+        </div>
+        <div data-class-filter>
+          <label htmlFor="pun-filter-class" className="form-label">{t('incidents.class', { defaultValue: 'Classe' })}</label>
+          <input id="pun-filter-class" className="form-control" value={classSearch} onChange={(e) => setClassSearch(e.target.value)} autoComplete="off" />
+          {classResults.length > 0 && (
+            <ul className="list-unstyled border mb-0" data-class-results>
+              {classResults.map((c) => (
+                <li key={c.id}>
+                  <button type="button" className="btn btn-link" data-pick-class={c.id} onClick={() => {
+                    const picked = audienceSelection(c);
+                    setClassNames((n) => ({ ...n, ...Object.fromEntries(picked.map((x) => [x.id, x.name])) }));
+                    setGroupIds([...groupIds, ...picked.map((x) => x.id).filter((id) => !groupIds.includes(id))]);
+                    setClassSearch('');
+                    setPage(0);
+                  }}>{c.name}{c.members ? ' (regroupement)' : ''}</button>
+                </li>
               ))}
             </ul>
           )}
-          <div className="d-flex gap-8 flex-wrap mt-8" data-filter-students>
-            {studentIdsFilter.map((id) => (
-              <span key={id} className="badge bg-secondary">{nameOf(id)} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${nameOf(id)}`} onClick={() => { setStudentIdsFilter(studentIdsFilter.filter((x) => x !== id)); setPage(0); }}>×</button></span>
+          <div className="d-flex gap-8 flex-wrap mt-8" data-chosen-classes>
+            {groupIds.map((id) => (
+              <span key={id} className="badge bg-secondary">{classNames[id] ?? id} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${classNames[id] ?? id}`} onClick={() => { setGroupIds(groupIds.filter((x) => x !== id)); setPage(0); }}>×</button></span>
             ))}
           </div>
         </div>
-        <details data-class-filter>
-          <summary>{t('incidents.class', { defaultValue: 'Classe' })}{groupIds.length > 0 ? ` (${groupIds.length})` : ''}</summary>
-          {(classesQuery.data ?? []).map((c) => (
-            <label key={c.id} className="d-block">
-              <input type="checkbox" data-class={c.id} checked={groupIds.includes(c.id)} onChange={() => { setGroupIds(groupIds.includes(c.id) ? groupIds.filter((x) => x !== c.id) : [...groupIds, c.id]); setPage(0); }} /> {c.name}
-            </label>
-          ))}
-        </details>
         <details data-type-filter>
           <summary>{t('incidents.type', { defaultValue: 'Type' })}{typeIds.length > 0 ? ` (${typeIds.length})` : ''}</summary>
           {allTypes.map((ty) => (
@@ -241,31 +245,19 @@ export function Punitions() {
             </select>
           </div>
           <div className="mb-12">
-            <label htmlFor="pun-student" className="form-label">{t('incidents.student', { defaultValue: 'Élève' })}</label>
             {editing ? (
-              <p data-fixed-student>{editing.studentName}</p>
+              <>
+                <div className="form-label">{t('incidents.student', { defaultValue: 'Élève' })}</div>
+                <p data-fixed-student>{editing.studentName}</p>
+              </>
             ) : (
-              <input id="pun-student" className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />
+              <StudentSearch
+                id="pun-student" label={t('incidents.student', { defaultValue: 'Élève' })} structureId={structureId}
+                selected={form.studentIds.map((id) => ({ id, name: nameOf(id) }))} pickAttr="data-student" chipsAttr="data-chosen-students" resultsAttr="data-student-results"
+                onAdd={(st) => { remember(st); set({ studentIds: [...form.studentIds, st.id] }); }}
+                onRemove={(st) => set({ studentIds: form.studentIds.filter((x) => x !== st.id) })}
+              />
             )}
-            {results.length > 0 && (
-              <ul className="list-unstyled border mb-0" data-student-results>
-                {results.map((s) => (
-                  <li key={s.id}>
-                    <button type="button" className="btn btn-link" data-student={s.id} onClick={() => { set({ studentIds: [...form.studentIds, s.id] }); setSearch(''); }}>
-                      {s.displayName}{s.classe ? ` (${s.classe})` : ''}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!editing && <div className="d-flex gap-8 flex-wrap mt-8" data-chosen-students>
-              {form.studentIds.map((id) => (
-                <span key={id} className="badge bg-secondary">
-                  {nameOf(id)}{' '}
-                  <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${nameOf(id)}`} onClick={() => set({ studentIds: form.studentIds.filter((x) => x !== id) })}>×</button>
-                </span>
-              ))}
-            </div>}
           </div>
 
           {form.categoryId === 1 && (

@@ -2,7 +2,7 @@
 // Migration AngularJS -> React (CCTP 51C) : lecture des incidents et des punitions/sanctions.
 
 import { protagonistesLabel } from './utils';
-import { AbsenceInfo, PunishmentForm, RawPunishment, createBody, fieldsSummary, processBody, updateBody } from './punishments';
+import { AbsenceInfo, AudienceHit, PunishmentForm, RawPunishment, createBody, fieldsSummary, processBody, updateBody } from './punishments';
 
 function xsrfHeader(): Record<string, string> {
   const m = typeof document !== 'undefined' ? document.cookie.match(/XSRF-TOKEN=([^;]+)/) : null;
@@ -118,15 +118,14 @@ export interface Student {
   classe?: string;
 }
 
-/** Élèves de la structure via l'annuaire (GET /directory/structure/:id/users, filtre Student). */
-export const getStudents = async (structureId: string): Promise<Student[]> => {
-  const users = await json<Array<{ id: string; displayName?: string; type?: string[] | string; classesNames?: string[] }>>(
-    await fetch(`/directory/structure/${structureId}/users`, base),
-  );
-  return (users ?? [])
-    .filter((u) => (Array.isArray(u.type) ? u.type.includes('Student') : u.type === 'Student'))
-    .map((u) => ({ id: u.id, displayName: u.displayName ?? '', classe: u.classesNames?.[0] }));
-};
+/** Élève trouvé par la recherche : nom d'affichage et première classe. */
+export interface StudentHit { id: string; displayName: string; classe?: string }
+
+/** Recherche d'élèves côté serveur (GET /presences/search/students), restreinte aux élèves visibles par le compte. */
+export const searchStudents = async (structureId: string, q: string): Promise<StudentHit[]> =>
+  json<Array<{ id: string; displayName?: string; firstName?: string; lastName?: string; classesNames?: string[] }>>(
+    await fetch(`/presences/search/students?structureId=${structureId}&q=${encodeURIComponent(q.trim())}&field=firstName&field=lastName`, base),
+  ).then((arr) => (arr ?? []).map((u) => ({ id: u.id, displayName: u.displayName ?? `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim(), classe: u.classesNames?.[0] })));
 
 /** Crée un incident (POST /incidents/incidents — schéma complet requis). */
 export const createIncident = async (data: {
@@ -239,7 +238,26 @@ export const getStudentsAbsences = async (studentIds: string[], startAt: string,
 export const getAbsenceReasons = async (structureId: string): Promise<Array<{ id: number; label: string }>> =>
   json<Array<{ id: number; label: string; hidden?: boolean }>>(await fetch(`/incidents/structures/${structureId}/reasons`, base)).then((a) => (a ?? []).filter((r) => !r.hidden));
 
-/** Classes de la structure (filtre de la liste). */
+/** Classes, groupes et regroupements dont le nom correspond (repli sur les classes sans droit de recherche de groupes). */
+export const searchAudiences = async (structureId: string, q: string): Promise<AudienceHit[]> => {
+  const term = q.trim();
+  let hits: AudienceHit[];
+  const res = await fetch(`/presences/search/groups?structureId=${structureId}&q=${encodeURIComponent(term)}&field=name`, base);
+  if (res.ok) {
+    hits = ((await res.json().catch(() => [])) as Array<{ id: string; name: string }>).map((g) => ({ id: g.id, name: g.name }));
+  } else {
+    const lower = term.toLowerCase();
+    hits = (await getClasses(structureId)).filter((c) => c.name.toLowerCase().includes(lower));
+  }
+  const gr = await fetch(`/presences/grouping/structure/${structureId}/list?searchValue=${encodeURIComponent(term.replace(/\s/g, '').toLowerCase())}`, base);
+  if (gr.ok) {
+    const groupings = (await gr.json().catch(() => [])) as Array<{ id: string; name: string; student_divisions?: Array<{ id: string; name: string }> }>;
+    hits.push(...groupings.map((g) => ({ id: g.id, name: g.name, members: (g.student_divisions ?? []).map((d) => ({ id: d.id, name: d.name })) })));
+  }
+  return hits;
+};
+
+/** Classes de la structure (repli de la recherche). */
 export const getClasses = async (structureId: string): Promise<Array<{ id: string; name: string }>> =>
   json<Array<{ id: string; name: string }>>(await fetch(`/viescolaire/classes?idEtablissement=${structureId}`, base)).then((a) => (a ?? []).map((c) => ({ id: c.id, name: c.name })));
 
@@ -294,6 +312,7 @@ export const api = {
   getStudentsAbsences,
   getAbsenceReasons,
   getClasses,
+  searchAudiences,
   getPunishmentTypes,
   setIncidentProcessed,
   getIncidentTypes,
@@ -301,7 +320,7 @@ export const api = {
   getPartners,
   getSeriousnesses,
   getProtagonistTypes,
-  getStudents,
+  searchStudents,
   createIncident,
   incidentsExportUrl,
 };

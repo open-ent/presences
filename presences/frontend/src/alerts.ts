@@ -54,7 +54,8 @@ export function selectedStudents(alerts: StudentAlert[], selected: Set<string>):
 }
 
 /** Lien vers la saisie d'une punition (application Incidents), élèves présélectionnés. */
-export const punishLink = (students: Array<{ id: string }>): string => `/incidents?ui=react#/punitions?students=${students.map((s) => s.id).join(',')}`;
+export const punishLink = (students: Array<{ id: string; name?: string }>): string =>
+  `/incidents?ui=react#/punitions?students=${students.map((s) => (s.name ? `${s.id}~${encodeURIComponent(s.name)}` : s.id)).join(',')}`;
 
 /** Types demandés par le lien d'une carte de l'accueil (`?type=ABSENCE`) : ce type seul, sinon tous. */
 export function typesFromParam(param: string | null): AlertType[] {

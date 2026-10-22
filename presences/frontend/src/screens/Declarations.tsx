@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api, PAGE_SIZE } from '../api';
 import { Pager } from '../components/Pager';
+import { PickedStudent, StudentSearch } from '../components/StudentSearch';
 import { QueryErrors } from '../components/QueryErrors';
 import { attachmentUrl, isTreated, statementParams } from '../statements';
 import { useStructure } from '../structure';
@@ -29,12 +30,10 @@ export function Declarations() {
   const [start, setStart] = useState(daysAgo(7));
   const [end, setEnd] = useState(schoolYear().end);
   const [includeTreated, setIncludeTreated] = useState(false);
-  const [studentIds, setStudentIds] = useState<string[]>([]);
-  const [search, setSearch] = useState('');
+  const [students, setStudents] = useState<PickedStudent[]>([]);
   const [page, setPage] = useState(0);
 
-  const filters = { structureId, start, end, studentIds, includeTreated };
-  const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
+  const filters = { structureId, start, end, studentIds: students.map((x) => x.id), includeTreated };
   const listQuery = useQuery({
     queryKey: ['pres', 'statements-list', structureId, statementParams(filters, page)],
     queryFn: () => api.getStatementsPage(statementParams(filters, page)),
@@ -46,12 +45,6 @@ export function Declarations() {
   });
 
   const items = listQuery.data?.all ?? [];
-  const nameOf = (id: string) => studentsQuery.data?.find((s) => s.id === id)?.displayName ?? id;
-  const results = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return (studentsQuery.data ?? []).filter((s) => s.displayName.toLowerCase().includes(q) && !studentIds.includes(s.id)).slice(0, 10);
-  }, [studentsQuery.data, search, studentIds]);
   const reset = () => setPage(0);
 
   if (init && !structureId) {
@@ -76,18 +69,10 @@ export function Declarations() {
           <input id="st-end" type="date" className="form-control" value={end} onChange={(e) => { setEnd(e.target.value); reset(); }} />
         </div>
         <div>
-          <label htmlFor="st-student" className="form-label">{t('presences.student', { defaultValue: 'Élève' })}</label>
-          <input id="st-student" className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />
-          {results.length > 0 && (
-            <ul className="list-unstyled border mb-0" data-results>
-              {results.map((s) => <li key={s.id}><button type="button" className="btn btn-link" data-pick={s.id} onClick={() => { setStudentIds([...studentIds, s.id]); setSearch(''); reset(); }}>{s.displayName}</button></li>)}
-            </ul>
-          )}
-          <div className="d-flex gap-8 flex-wrap mt-8" data-chosen>
-            {studentIds.map((id) => (
-              <span key={id} className="badge bg-secondary">{nameOf(id)} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${nameOf(id)}`} onClick={() => { setStudentIds(studentIds.filter((x) => x !== id)); reset(); }}>×</button></span>
-            ))}
-          </div>
+          <StudentSearch
+            id="st-student" label={t('presences.student', { defaultValue: 'Élève' })} structureId={structureId} selected={students}
+            onAdd={(x) => { setStudents([...students, x]); reset(); }} onRemove={(x) => { setStudents(students.filter((y) => y.id !== x.id)); reset(); }}
+          />
         </div>
         <label className="mb-8">
           <input type="checkbox" data-include-treated checked={includeTreated} onChange={(e) => { setIncludeTreated(e.target.checked); reset(); }} /> {t('presences.statements.show.treated', { defaultValue: 'Afficher aussi les déclarations traitées' })}

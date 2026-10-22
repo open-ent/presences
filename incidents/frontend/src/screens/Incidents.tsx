@@ -1,6 +1,6 @@
 import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,6 +8,7 @@ import { api } from '../api';
 import { dateFr, heure, ouiNon, schoolYear } from '../utils';
 import { Pager } from '../components/Pager';
 import { QueryErrors } from '../components/QueryErrors';
+import { StudentSearch } from '../components/StudentSearch';
 import { useRights } from '../rights';
 import { useStructure } from '../structure';
 
@@ -206,7 +207,6 @@ function IncidentForm({ structureId, ownerId, onDone, onCancel }: { structureId:
   const [partnerId, setPartnerId] = useState('');
   const [seriousnessId, setSeriousnessId] = useState('');
   const [description, setDescription] = useState('');
-  const [studentSearch, setStudentSearch] = useState('');
   const [students, setStudents] = useState<Array<{ user_id: string; type_id: number; name: string }>>([]);
   const [protagonistTypeId, setProtagonistTypeId] = useState('');
 
@@ -215,16 +215,8 @@ function IncidentForm({ structureId, ownerId, onDone, onCancel }: { structureId:
   const partnersQuery = useQuery({ queryKey: ['incidents', 'ref', 'partners', structureId], queryFn: () => api.getPartners(structureId) });
   const seriousnessQuery = useQuery({ queryKey: ['incidents', 'ref', 'seriousness', structureId], queryFn: () => api.getSeriousnesses(structureId) });
   const protaTypesQuery = useQuery({ queryKey: ['incidents', 'ref', 'prota-types', structureId], queryFn: () => api.getProtagonistTypes(structureId) });
-  const studentsQuery = useQuery({ queryKey: ['incidents', 'students', structureId], queryFn: () => api.getStudents(structureId) });
 
   const protaTypes = protaTypesQuery.data ?? [];
-  const norm = (s: string) => s.toLocaleLowerCase('fr-FR');
-  const matches = useMemo(() => {
-    const q = norm(studentSearch.trim());
-    if (q.length < 2) return [];
-    return (studentsQuery.data ?? []).filter((s) => norm(`${s.displayName} ${s.classe ?? ''}`).includes(q)).slice(0, 8);
-  }, [studentSearch, studentsQuery.data]);
-
   const createMut = useMutation({
     mutationFn: () =>
       api.createIncident({
@@ -247,17 +239,16 @@ function IncidentForm({ structureId, ownerId, onDone, onCancel }: { structureId:
     if (valid) createMut.mutate();
   };
 
-  const addStudent = (s: { id: string; displayName: string; classe?: string }) => {
+  const addStudent = (s: { id: string; name: string }) => {
     const tId = Number(protagonistTypeId || protaTypes[0]?.id || 0);
     if (!tId || students.some((x) => x.user_id === s.id)) return;
-    setStudents((prev) => [...prev, { user_id: s.id, type_id: tId, name: s.displayName }]);
-    setStudentSearch('');
+    setStudents((prev) => [...prev, { user_id: s.id, type_id: tId, name: s.name }]);
   };
 
   return (
     <form className="card p-16 mb-16" onSubmit={onSubmit}>
       <h2 style={{ fontSize: 18 }} className="mb-12">{t('incidents.new', { defaultValue: 'Saisir un incident' })}</h2>
-      <QueryErrors queries={[typesQuery, placesQuery, partnersQuery, seriousnessQuery, protaTypesQuery, studentsQuery]} />
+      <QueryErrors queries={[typesQuery, placesQuery, partnersQuery, seriousnessQuery, protaTypesQuery]} />
       <div className="d-flex gap-12 flex-wrap mb-12">
         <div>
           <label htmlFor="new-inc-date" className="form-label">{t('incidents.date', { defaultValue: 'Date' })}</label>
@@ -299,28 +290,8 @@ function IncidentForm({ structureId, ownerId, onDone, onCancel }: { structureId:
 
       {/* Protagonistes : recherche annuaire + rôle */}
       <div className="d-flex gap-12 flex-wrap align-items-end mb-8">
-        <div style={{ minWidth: 280, position: 'relative' }}>
-          <label htmlFor="new-inc-student" className="form-label">{t('incidents.add.student', { defaultValue: 'Ajouter un élève' })}</label>
-          <input
-            id="new-inc-student"
-            type="search"
-            className="form-control"
-            value={studentSearch}
-            onChange={(e) => setStudentSearch(e.target.value)}
-            placeholder={t('incidents.search.student', { defaultValue: 'Nom de l’élève…' })}
-            autoComplete="off"
-          />
-          {matches.length > 0 && (
-            <ul className="list-group position-absolute w-100" style={{ zIndex: 10 }}>
-              {matches.map((s) => (
-                <li key={s.id} className="list-group-item p-0">
-                  <button type="button" className="btn w-100 text-start" onClick={() => addStudent(s)}>
-                    {s.displayName}{s.classe ? ` (${s.classe})` : ''}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div style={{ minWidth: 280 }}>
+          <StudentSearch id="new-inc-student" label={t('incidents.add.student', { defaultValue: 'Ajouter un élève' })} structureId={structureId} selected={[]} hideChips onAdd={addStudent} placeholder={t('incidents.search.student', { defaultValue: 'Nom de l’élève…' })} />
         </div>
         <div>
           <label htmlFor="new-inc-prota-type" className="form-label">{t('incidents.protagonist.type', { defaultValue: 'Rôle' })}</label>
