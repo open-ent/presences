@@ -438,6 +438,30 @@ export const changeEventsReason = async (ids: number[], reasonId: number | null)
   if (!res.ok) throw new Error(String(res.status));
 };
 
+/** Un créneau du profil horaire de la structure. */
+export interface TimeSlot { id: string; name: string; startHour: string; endHour: string }
+
+/** Créneaux horaires de la structure (GET /viescolaire/structures/:id/time-slot) ; vide si aucun profil. */
+export const getTimeSlots = async (structureId: string): Promise<TimeSlot[]> => {
+  const res = await fetch(`/viescolaire/structures/${structureId}/time-slot`, base);
+  if (!res.ok) return [];
+  const data = (await res.json().catch(() => null)) as { slots?: TimeSlot[] } | null;
+  return data?.slots ?? [];
+};
+
+/** Une action engagée sur un événement (historique). */
+export interface EventAction { id?: number; action_id: number; label: string; comment?: string | null; created_date?: string; owner?: string; displayName?: string }
+
+/** Historique des actions d'un événement (GET /presences/events/:id/actions). */
+export const getEventActions = async (eventId: number): Promise<EventAction[]> =>
+  json<EventAction[]>(await fetch(`/presences/events/${eventId}/actions`, base));
+
+/** Engage une action sur un ou plusieurs événements (POST /presences/events/actions). */
+export const createEventAction = async (eventIds: number[], actionId: number, owner: string, comment: string): Promise<void> => {
+  const res = await fetch('/presences/events/actions', { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify({ eventId: eventIds, actionId, owner, comment }) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Régularise (ou dé-régularise) des événements d'absence (PUT /presences/events/regularized). */
 export const regularizeEvents = async (ids: number[], regularized: boolean): Promise<void> => {
   const res = await fetch(`/presences/events/regularized`, {
@@ -605,7 +629,7 @@ export const api = {
   getStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
   getAlertSummary, getForgottenRegisters, getStatements,
-  getEvents, getEventsPage, getEventsFiltered, changeEventsReason, regularizeEvents,
+  getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,
   getPresences, getStudentEvents, getChildren,
 };

@@ -22,4 +22,9 @@ describe('eventFilters', () => {
     expect(toggleKind(['absence'], 'absence')).toEqual([]);
     expect(hasNothingToLoad({ ...base, kinds: [] })).toBe(true);
   });
+  it('ajoute élèves, classes, suivi et créneau horaire', () => {
+    const p = filterParams({ ...base, studentIds: ['e1', 'e2'], classIds: ['c1'], followed: 'no', startTime: '08:00', endTime: '09:00:00' });
+    expect(p).toContain('&userId=e1,e2&classes=c1&followed=false&startTime=08:00:00&endTime=09:00:00');
+    expect(filterParams({ ...base, followed: 'all', studentIds: [] })).toBe(filterParams(base));
+  });
 });

@@ -1,11 +1,11 @@
 import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { Pager } from '../components/Pager';
-import { EventFilters, EventKind, KIND_TYPE_ID, RegularizedFilter, exportUrl, filterParams, hasNothingToLoad, toggleKind } from '../eventFilters';
+import { EventFilters, EventKind, FollowedFilter, KIND_TYPE_ID, RegularizedFilter, exportUrl, filterParams, hasNothingToLoad, toggleKind } from '../eventFilters';
 import { dateFr, heure, schoolYear, visibleByLabel } from '../utils';
 import { useStructure } from '../structure';
 
@@ -22,7 +22,7 @@ const KIND_LABEL: Record<number, string> = { 1: 'Absence', 2: 'Retard', 3: 'Dép
  */
 export function Regularisation() {
   const { t } = useTranslation(['presences', 'common']);
-  const { init } = useEdificeClient();
+  const { init, user } = useEdificeClient();
   const qc = useQueryClient();
   const { structureId } = useStructure();
 
@@ -36,12 +36,39 @@ export function Regularisation() {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [bulkReason, setBulkReason] = useState('');
   const [page, setPage] = useState(0);
+  const [studentIds, setStudentIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [classIds, setClassIds] = useState<string[]>([]);
+  const [followed, setFollowed] = useState<FollowedFilter>('all');
+  const [startSlot, setStartSlot] = useState('');
+  const [endSlot, setEndSlot] = useState('');
+  const [actionFor, setActionFor] = useState<number | null>(null);
+  const [actionId, setActionId] = useState('');
+  const [actionComment, setActionComment] = useState('');
 
-  const filters: EventFilters = { structureId, start, end, kinds, regularized, reasonIds, noReason };
+  const slotsQuery = useQuery({ queryKey: ['pres', 'time-slots', structureId], queryFn: () => api.getTimeSlots(structureId), enabled: !!structureId });
+  const slots = slotsQuery.data ?? [];
+  const startTime = slots.find((x) => x.id === startSlot)?.startHour;
+  const endTime = slots.find((x) => x.id === endSlot)?.endHour;
+  const filters: EventFilters = { structureId, start, end, kinds, regularized, reasonIds, noReason, studentIds, classIds, followed, startTime, endTime };
   const params = filterParams(filters);
   const typeIds = kinds.map((k) => KIND_TYPE_ID[k]);
   const resetPage = () => { setPage(0); setChecked(new Set()); };
 
+  const studentsQuery = useQuery({ queryKey: ['pres', 'students', structureId], queryFn: () => api.getStudents(structureId), enabled: !!structureId });
+  const classesQuery = useQuery({ queryKey: ['pres', 'classes', structureId], queryFn: () => api.getClasses(structureId), enabled: !!structureId });
+  const actionsTypesQuery = useQuery({ queryKey: ['pres', 'actions', structureId], queryFn: () => api.getActions(structureId), enabled: !!structureId });
+  const historyQuery = useQuery({ queryKey: ['pres', 'event-actions', actionFor], queryFn: () => api.getEventActions(actionFor as number), enabled: actionFor !== null });
+  const nameOf = (id: string) => studentsQuery.data?.find((x) => x.id === id)?.displayName ?? id;
+  const studentResults = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return (studentsQuery.data ?? []).filter((x) => x.displayName.toLowerCase().includes(q) && !studentIds.includes(x.id)).slice(0, 10);
+  }, [studentsQuery.data, studentSearch, studentIds]);
+  const actionMut = useMutation({
+    mutationFn: () => api.createEventAction([actionFor as number], Number(actionId), user?.userId ?? '', actionComment),
+    onSuccess: () => { setActionId(''); setActionComment(''); qc.invalidateQueries({ queryKey: ['pres', 'event-actions', actionFor] }); invalidate(); },
+  });
   const reasonsQuery = useQuery({ queryKey: ['pres', 'reasons', structureId], queryFn: () => api.getReasons(structureId), enabled: !!structureId });
   const reasons = visibleByLabel(reasonsQuery.data ?? []);
 
@@ -113,6 +140,56 @@ export function Regularisation() {
             </label>
           ))}
         </fieldset>
+        <div>
+          <label htmlFor="reg-followed" className="form-label">{t('presences.followed', { defaultValue: 'Suivi' })}</label>
+          <select id="reg-followed" className="form-control" value={followed} onChange={(e) => { setFollowed(e.target.value as FollowedFilter); resetPage(); }}>
+            <option value="all">{t('presences.followed.all', { defaultValue: 'Tous' })}</option>
+            <option value="yes">{t('presences.followed.yes', { defaultValue: 'Suivis' })}</option>
+            <option value="no">{t('presences.followed.no', { defaultValue: 'Non suivis' })}</option>
+          </select>
+        </div>
+        {slots.length > 0 && (
+          <>
+            <div>
+              <label htmlFor="reg-slot-start" className="form-label">{t('presences.slot.from', { defaultValue: 'Du créneau' })}</label>
+              <select id="reg-slot-start" className="form-control" value={startSlot} onChange={(e) => { setStartSlot(e.target.value); resetPage(); }}>
+                <option value="">—</option>
+                {slots.map((x) => <option key={x.id} value={x.id}>{x.name} ({x.startHour})</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="reg-slot-end" className="form-label">{t('presences.slot.to', { defaultValue: 'Au créneau' })}</label>
+              <select id="reg-slot-end" className="form-control" value={endSlot} onChange={(e) => { setEndSlot(e.target.value); resetPage(); }}>
+                <option value="">—</option>
+                {slots.map((x) => <option key={x.id} value={x.id}>{x.name} ({x.endHour})</option>)}
+              </select>
+            </div>
+          </>
+        )}
+        <div>
+          <label htmlFor="reg-filter-student" className="form-label">{t('presences.student', { defaultValue: 'Élève' })}</label>
+          <input id="reg-filter-student" className="form-control" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} autoComplete="off" />
+          {studentResults.length > 0 && (
+            <ul className="list-unstyled border mb-0" data-filter-results>
+              {studentResults.map((x) => (
+                <li key={x.id}><button type="button" className="btn btn-link" data-filter-student={x.id} onClick={() => { setStudentIds([...studentIds, x.id]); setStudentSearch(''); resetPage(); }}>{x.displayName}</button></li>
+              ))}
+            </ul>
+          )}
+          <div className="d-flex gap-8 flex-wrap mt-8" data-filter-students>
+            {studentIds.map((id) => (
+              <span key={id} className="badge bg-secondary">{nameOf(id)} <button type="button" className="btn btn-link p-0" aria-label={`Retirer ${nameOf(id)}`} onClick={() => { setStudentIds(studentIds.filter((x) => x !== id)); resetPage(); }}>×</button></span>
+            ))}
+          </div>
+        </div>
+        <details data-class-filter>
+          <summary>{t('presences.class', { defaultValue: 'Classe' })}{classIds.length > 0 ? ` (${classIds.length})` : ''}</summary>
+          {(classesQuery.data ?? []).map((c) => (
+            <label key={c.id} className="d-block">
+              <input type="checkbox" data-class={c.id} checked={classIds.includes(c.id)} onChange={() => { setClassIds(classIds.includes(c.id) ? classIds.filter((x) => x !== c.id) : [...classIds, c.id]); resetPage(); }} /> {c.name}
+            </label>
+          ))}
+        </details>
         <details data-reason-filter>
           <summary>{t('presences.reasons.filter', { defaultValue: 'Motifs' })}{reasonIds.length + (noReason ? 1 : 0) > 0 ? ` (${reasonIds.length + (noReason ? 1 : 0)})` : ''}</summary>
           <label className="d-block">
@@ -180,11 +257,13 @@ export function Regularisation() {
                 <th>{t('presences.slot', { defaultValue: 'Créneau' })}</th>
                 <th>{t('presences.reason', { defaultValue: 'Motif' })}</th>
                 <th>{t('presences.regularised', { defaultValue: 'Régularisé' })}</th>
+                <th>{t('presences.actions', { defaultValue: 'Actions' })}</th>
               </tr>
             </thead>
             <tbody>
               {events.map((e) => (
-                <tr key={e.id}>
+                <Fragment key={e.id}>
+                <tr>
                   <td><input type="checkbox" aria-label={`${e.studentName} ${dateFr(e.date)}`} checked={checked.has(e.id)} onChange={() => toggle(e.id)} /></td>
                   <td>{e.studentName}</td>
                   <td>{e.classeName || '—'}</td>
@@ -220,7 +299,46 @@ export function Regularisation() {
                       />
                     ) : '—'}
                   </td>
+                  <td>
+                    {e.typeId === 1 ? (
+                      <button type="button" className="btn btn-outline-primary btn-sm" data-actions={e.id} onClick={() => setActionFor(actionFor === e.id ? null : e.id)}>
+                        {t('presences.actions.open', { defaultValue: 'Suivi' })}
+                      </button>
+                    ) : '—'}
+                  </td>
                 </tr>
+                {actionFor === e.id && (
+                  <tr data-actions-row={e.id}>
+                    <td colSpan={9}>
+                      <h3 style={{ fontSize: 16 }}>{t('presences.absence.actions.concern.absence', { defaultValue: "Actions engagées pour l'absence" })} — {e.studentName} {dateFr(e.date)}</h3>
+                      {historyQuery.isError && <div className="alert alert-warning" role="alert">{t('presences.error', { defaultValue: 'Une erreur est survenue.' })}</div>}
+                      <ul data-history className="mb-12">
+                        {(historyQuery.data ?? []).map((a, i) => (
+                          <li key={a.id ?? i}>{a.label}{a.comment ? ` — ${a.comment}` : ''}{a.created_date ? ` (${dateFr(a.created_date)})` : ''}</li>
+                        ))}
+                        {historyQuery.data && historyQuery.data.length === 0 && <li className="text-muted">{t('presences.actions.none', { defaultValue: 'Aucune action engagée.' })}</li>}
+                      </ul>
+                      <div className="d-flex gap-12 flex-wrap align-items-end">
+                        <div>
+                          <label htmlFor="reg-action-type" className="form-label">{t('presences.absence.action.types', { defaultValue: "Type d'action" })}</label>
+                          <select id="reg-action-type" className="form-control" value={actionId} onChange={(ev) => setActionId(ev.target.value)}>
+                            <option value="">—</option>
+                            {(actionsTypesQuery.data ?? []).filter((x) => !x.hidden).map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex-grow-1">
+                          <label htmlFor="reg-action-comment" className="form-label">{t('presences.absence.actions.comment', { defaultValue: 'Commentaire' })}</label>
+                          <input id="reg-action-comment" className="form-control" value={actionComment} onChange={(ev) => setActionComment(ev.target.value)} />
+                        </div>
+                        <button type="button" className="btn btn-primary" data-action-save disabled={actionId === '' || actionMut.isPending} onClick={() => actionMut.mutate()}>
+                          {t('presences.exemptions.form.submit', { defaultValue: 'Valider' })}
+                        </button>
+                      </div>
+                      {actionMut.isError && <div className="alert alert-warning mt-8" role="alert" data-action-error>{t('presences.action.error', { defaultValue: "L'action n'a pas pu être enregistrée." })}</div>}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
