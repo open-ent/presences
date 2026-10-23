@@ -2,7 +2,10 @@
 // Incrément 1 : lecture seule du paramétrage de la structure (motifs, actions, dispositifs, réglages).
 
 import { nomComplet } from './utils';
+import i18n from 'i18next';
+
 import type { RegisterDetail } from './register';
+import { normalizeReason } from './utils';
 
 /** Motif d'absence de la structure. */
 export interface Reason {
@@ -84,7 +87,9 @@ const mutHeaders = () => ({ 'Content-Type': 'application/json', ...xsrfHeader() 
 // ── Référentiels de paramétrage (lecture seule) ────────────────────────────────
 /** Motifs d'absence (au moins un motif système présent après init). */
 export const getReasons = async (structureId: string): Promise<Reason[]> =>
-  json<Reason[]>(await fetch(`/presences/reasons?structureId=${structureId}`, base));
+  json<Reason[]>(await fetch(`/presences/reasons?structureId=${structureId}`, base)).then((list) =>
+    (list ?? []).map((r) => normalizeReason(r, (key) => i18n.t(key, { ns: 'presences', defaultValue: key }))),
+  );
 
 /** Actions/mesures paramétrées de la structure. */
 export const getActions = async (structureId: string): Promise<Action[]> =>

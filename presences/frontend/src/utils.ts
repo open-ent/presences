@@ -7,6 +7,16 @@ export function visibleByLabel<T extends { label: string; hidden?: boolean }>(it
     .sort((a, b) => a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' }));
 }
 
+/**
+ * Motif tel que renvoyé par le serveur → motif affiché : le libellé peut être une clé i18n (motif système « Motifs
+ * multiples », `presences.absence.select.multiple`), traduite ; un motif d'identifiant négatif (marqueur des événements
+ * à motifs multiples) n'est ni listé ni proposé dans les choix (`hidden`), mais reste résolvable par son identifiant.
+ */
+export function normalizeReason<T extends { id: number; label: string; hidden?: boolean }>(r: T, translate: (key: string) => string): T {
+  const keyed = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/i.test(r.label);
+  return { ...r, label: keyed ? translate(r.label) : r.label, hidden: r.hidden || r.id < 0 };
+}
+
 /** Libellé « oui/non » d'un booléen (pour l'affichage FR). */
 export function ouiNon(v?: boolean): string {
   return v ? 'Oui' : 'Non';

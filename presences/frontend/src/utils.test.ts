@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { alerteLabel, classeLabel, dateFr, eleveNom, heure, jour, nomComplet, ouiNon, seuil, visibleByLabel, schoolYear, todayIso } from './utils';
+import { alerteLabel, classeLabel, dateFr, eleveNom, heure, jour, nomComplet, normalizeReason, ouiNon, seuil, visibleByLabel, schoolYear, todayIso } from './utils';
 
 describe('visibleByLabel', () => {
   it('retire les masqués et trie par libellé', () => {
@@ -108,5 +108,19 @@ describe('dates par défaut', () => {
   it('jour courant au format ISO, sans décalage UTC', () => {
     expect(todayIso(new Date(2026, 9, 22, 23, 59))).toBe('2026-10-22');
     expect(todayIso(new Date(2026, 0, 5, 0, 1))).toBe('2026-01-05');
+  });
+});
+
+describe('normalizeReason', () => {
+  const tr = (k: string) => (k === 'presences.absence.select.multiple' ? 'Motifs multiples' : k);
+  it('traduit un libellé qui est une clé i18n et masque le marqueur d’identifiant négatif', () => {
+    expect(normalizeReason({ id: -1, label: 'presences.absence.select.multiple' }, tr)).toEqual({ id: -1, label: 'Motifs multiples', hidden: true });
+  });
+  it('laisse un libellé ordinaire et un motif visible intacts', () => {
+    expect(normalizeReason({ id: 4, label: 'Maladie de l’enfant' }, tr)).toEqual({ id: 4, label: 'Maladie de l’enfant', hidden: false });
+    expect(normalizeReason({ id: 5, label: 'Rendez-vous médical.', hidden: false }, tr)).toMatchObject({ label: 'Rendez-vous médical.', hidden: false });
+  });
+  it('conserve un masquage déjà posé par le serveur', () => {
+    expect(normalizeReason({ id: 9, label: 'Ancien', hidden: true }, tr).hidden).toBe(true);
   });
 });
