@@ -39,14 +39,12 @@ export const eventListExportUrl = (f: RegistryFilters): string =>
 export const callRegisterExportUrl = (f: RegistryFilters): string =>
   `/presences/registry/export/new?structureId=${f.structureId}&month=${f.month}${f.groupIds.map((g) => `&group=${g}`).join('')}`;
 
-/** Mois de l'année scolaire (septembre → août) : valeur `YYYY-MM` et libellé « septembre 2026 ». */
+/** Les 12 derniers mois jusqu'au mois courant (comme l'AngularJS) : valeur `YYYY-MM` et libellé « octobre 2026 ». */
 export function schoolMonths(ref: Date = new Date()): Array<{ value: string; label: string }> {
   const names = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-  const y = ref.getMonth() >= 8 ? ref.getFullYear() : ref.getFullYear() - 1;
   return Array.from({ length: 12 }, (_, i) => {
-    const m = (8 + i) % 12; // 8 = septembre
-    const year = m >= 8 ? y : y + 1;
-    return { value: `${year}-${String(m + 1).padStart(2, '0')}`, label: `${names[m]} ${year}` };
+    const d = new Date(ref.getFullYear(), ref.getMonth() - 11 + i, 1);
+    return { value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: `${names[d.getMonth()]} ${d.getFullYear()}` };
   });
 }
 

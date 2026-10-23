@@ -16,12 +16,13 @@ describe('registry', () => {
     expect(hasNothingToShow({ ...f, types: [] })).toBe(true);
     expect(hasNothingToShow({ ...f, types: [], forgottenNotebook: true })).toBe(false);
   });
-  it('liste les mois de l’année scolaire', () => {
+  it('liste les 12 derniers mois jusqu’au mois courant', () => {
     const m = schoolMonths(new Date(2026, 9, 23));
-    expect(m[0]).toEqual({ value: '2026-09', label: 'septembre 2026' });
-    expect(m[4]).toEqual({ value: '2027-01', label: 'janvier 2027' });
-    expect(m[11]).toEqual({ value: '2027-08', label: 'août 2027' });
-    expect(schoolMonths(new Date(2027, 2, 1))[0].value).toBe('2026-09');
+    expect(m[0]).toEqual({ value: '2025-11', label: 'novembre 2025' });
+    expect(m[2]).toEqual({ value: '2026-01', label: 'janvier 2026' });
+    expect(m[11]).toEqual({ value: '2026-10', label: 'octobre 2026' });
+    expect(schoolMonths(new Date(2027, 0, 5))[0].value).toBe('2026-02');
+    expect(schoolMonths(new Date(2026, 11, 1))[0].value).toBe('2026-01');
     expect(currentMonth(new Date(2026, 9, 23))).toBe('2026-10');
   });
   it('regroupe les événements d’une journée', () => {

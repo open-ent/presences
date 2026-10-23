@@ -165,7 +165,7 @@ export const registryController = ng.controller('RegistryController', ['$scope',
         const getRegisterSummary = async (): Promise<void> => {
             vm.registries = await registryService.getRegisterSummary(vm.params);
             let monthLength = [];
-            if (vm.registries.length > 1) {
+            if (vm.registries.length > 0) {
                 createEventDisplay();
                 vm.registries[0].days.forEach((value, index: number) => {
                     monthLength.push(index);
