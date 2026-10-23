@@ -155,6 +155,18 @@ export const attenders = (students: RegisterStudent[]): { present: number; total
   total: students.length,
 });
 
+/**
+ * Notification de l'enseignant d'un appel oublié : droit de notifier, appel non terminé, cours commencé depuis plus de
+ * 15 minutes et au plus hier (écart de jours calendaires strictement inférieur à 2).
+ */
+export function canNotify(startDate: string | undefined, stateId: number | undefined, hasRight: boolean, now: Date = new Date()): boolean {
+  if (!hasRight || !startDate || stateId === REGISTER_STATE.DONE) return false;
+  const start = new Date(startDate);
+  if (now.getTime() <= start.getTime() + 15 * 60_000) return false;
+  const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.round((day(now) - day(start)) / 86_400_000) < 2;
+}
+
 /** Un cours ne peut pas être appelé plus de 15 minutes avant son début. */
 export const isFutureCourse = (startDate: string | undefined, now: Date = new Date()): boolean =>
   !startDate || now.getTime() + 15 * 60_000 <= new Date(startDate).getTime();

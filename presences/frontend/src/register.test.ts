@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { absenceBlocked, attenders, EVENT, eventOf, groupStudents, historyClass, isCurrentSlot, isFutureCourse, nowOnDay, shiftDay, sqlDate, stateKey, summary, timeOf, withTime } from './register';
+import { absenceBlocked, attenders, canNotify, EVENT, eventOf, groupStudents, historyClass, isCurrentSlot, isFutureCourse, nowOnDay, shiftDay, sqlDate, stateKey, summary, timeOf, withTime } from './register';
 
 describe('formats de date du registre', () => {
   it('sqlDate normalise le format ISO', () => {
@@ -78,5 +78,20 @@ describe('appel : historique, groupes, dispenses', () => {
     expect(isFutureCourse('2026-10-23T08:14:00', now)).toBe(false);
     expect(isFutureCourse('2026-10-23T08:16:00', now)).toBe(true);
     expect(isFutureCourse(undefined, now)).toBe(true);
+  });
+});
+
+describe('canNotify', () => {
+  const now = new Date('2026-10-23T10:00:00');
+  it('autorise un appel oublié du jour ou d’hier avec le droit', () => {
+    expect(canNotify('2026-10-23T08:00:00', 1, true, now)).toBe(true);
+    expect(canNotify('2026-10-22T16:00:00', 2, true, now)).toBe(true);
+  });
+  it('refuse sans droit, appel terminé, cours trop récent ou trop ancien', () => {
+    expect(canNotify('2026-10-23T08:00:00', 1, false, now)).toBe(false);
+    expect(canNotify('2026-10-23T08:00:00', 3, true, now)).toBe(false);
+    expect(canNotify('2026-10-23T09:50:00', 1, true, now)).toBe(false);
+    expect(canNotify('2026-10-21T08:00:00', 1, true, now)).toBe(false);
+    expect(canNotify(undefined, 1, true, now)).toBe(false);
   });
 });

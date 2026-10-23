@@ -9,6 +9,7 @@ import { QueryErrors } from '../components/QueryErrors';
 import {
   absenceBlocked,
   attenders,
+  canNotify,
   EVENT,
   eventOf,
   groupStudents,
@@ -36,6 +37,8 @@ import { useStructure } from '../structure';
  * « terminé » avec « Valider l'appel ». Un enseignant voit ses cours par défaut.
  */
 const HISTORY_COLOR: Record<string, string> = { '': '#e5e5e5', absence: '#d9534f', lateness: '#f0ad4e', departure: '#5bc0de', remark: '#6f42c1' };
+const NOTIFY = 'fr.openent.presences.controller.CourseController|notify';
+const SEARCH = 'fr.openent.presences.controller.SearchController|searchUsers';
 const MANAGE = 'fr.openent.presences.controller.FakeRight|managePresences';
 const NOTEBOOK = 'fr.openent.presences.controller.NotebookController|worflowManageForgottenNotebook';
 
@@ -47,6 +50,10 @@ export function Registre() {
   const isTeacher = user?.type === 'ENSEIGNANT';
   const canManage = useHasWorkflow(MANAGE) === true;
   const canNotebook = useHasWorkflow(NOTEBOOK) === true;
+  const canNotifyRight = useHasWorkflow(NOTIFY) === true;
+  const canSearch = useHasWorkflow(SEARCH) === true;
+  const [teacher, setTeacher] = useState<{ id: string; name: string } | null>(null);
+  const [notified, setNotified] = useState<string | null>(null);
 
   const [params] = useSearchParams();
   const [date, setDate] = useState(params.get('date') ?? todayIso());
@@ -62,8 +69,8 @@ export function Registre() {
 
   const slots = useMultipleSlot(structureId);
   const coursesQuery = useQuery({
-    queryKey: ['presences', 'courses', structureId, date, filterMine ? user?.userId : null, slots.value],
-    queryFn: () => api.getCourses(structureId, date, filterMine ? user?.userId : undefined, slots.value),
+    queryKey: ['presences', 'courses', structureId, date, teacher?.id ?? (filterMine ? user?.userId : null), slots.value],
+    queryFn: () => api.getCourses(structureId, date, teacher?.id ?? (filterMine ? user?.userId : undefined), slots.value),
     enabled: !!structureId && !!date && slots.ready,
   });
   const courses = coursesQuery.data ?? [];
@@ -87,6 +94,10 @@ export function Registre() {
     await qc.invalidateQueries({ queryKey: ['presences', 'courses'] });
   };
 
+  const notifyMut = useMutation({
+    mutationFn: (c: Course) => api.notifyCourse({ id: c.id, startDate: c.startDate ?? '', endDate: c.endDate ?? '' } as never),
+    onSuccess: (_r, c) => setNotified(c.id),
+  });
   const openMut = useMutation({
     mutationFn: (course: Course) =>
       course.register_id
@@ -287,6 +298,23 @@ export function Registre() {
               {heure(openCourse.startDate)}–{heure(openCourse.endDate)} · {openCourse.subjectName ?? openCourse.subjectId}
             </p>
 
+            {(register?.teachers ?? openCourse.teachers ?? []).length > 0 && (
+              <div className="d-flex gap-8 flex-wrap align-items-center mb-8" data-teachers>
+                {(register?.teachers ?? openCourse.teachers ?? []).map((tc) => {
+                  const label = (tc as { displayName?: string }).displayName ?? tc.id;
+                  const on = teacher?.id === tc.id;
+                  return canSearch ? (
+                    <button key={tc.id} type="button" className={`btn btn-sm btn-${on ? 'primary' : 'outline-secondary'}`} aria-pressed={on} data-teacher={tc.id} title={t('presences.registre.teacher.courses', { defaultValue: 'Afficher les cours de cet enseignant' })} onClick={() => setTeacher(on ? null : { id: tc.id, name: label })}>{label}</button>
+                  ) : <span key={tc.id} className="badge bg-secondary" data-teacher={tc.id}>{label}</span>;
+                })}
+                {canNotify(register?.start_date ?? openCourse.startDate, register?.state_id, canNotifyRight) && (
+                  notified === openCourse.id || register?.notified
+                    ? <span className="badge bg-success" data-notified>{t('presences.register.notified', { defaultValue: 'Enseignant notifié' })}</span>
+                    : <button type="button" className="btn btn-sm btn-warning" disabled={notifyMut.isPending} onClick={() => notifyMut.mutate(openCourse)} data-notify>{t('presences.register.notify', { defaultValue: "Notifier l'enseignant" })}</button>
+                )}
+                {notifyMut.isError && <span className="text-danger" role="alert" data-notify-error>{t('presences.register.notify.err', { defaultValue: "La notification n'a pas pu être envoyée." })}</span>}
+              </div>
+            )}
             {openMut.isPending && <p>{t('presences.registre.opening', { defaultValue: "Ouverture de l'appel…" })}</p>}
             {openMut.isError && (
               <div className="alert alert-danger" role="alert">
