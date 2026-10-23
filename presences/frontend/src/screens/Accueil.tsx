@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 
 import { api, ForgottenRegister, Statement } from '../api';
 import { AbsencesWidget } from '../components/AbsencesWidget';
+import { CurrentCourseWidget } from '../components/CurrentCourseWidget';
 import { ALERT_TYPES, alerteLabel, classeLabel, dateFr, eleveNom, heure, jour } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
 import { useRights } from '../rights';
@@ -83,6 +84,7 @@ export function Accueil() {
           {t('presences.no.rights', { defaultValue: "Votre compte n'a accès à aucune fonction de ce module." })}
         </div>
       )}
+      {rights.widgetCurrentCourse && <CurrentCourseWidget structureId={structureId} />}
       {rights.widgetAbsences && <AbsencesWidget structureId={structureId} />}
 
       {/* Synthèse des alertes : une carte KPI par type de seuil franchi */}

@@ -31,6 +31,7 @@ export const WORKFLOW = {
   widgetDayCourses: 'fr.openent.presences.controller.FakeRight|widgetDayCourses',
   widgetDayPresences: 'fr.openent.presences.controller.FakeRight|widgetDayPresences',
   widgetAbsences: 'fr.openent.presences.controller.FakeRight|widgetAbsences',
+  widgetCurrentCourse: 'fr.openent.presences.controller.FakeRight|widgetCurrentCourse',
   viewCalendar: 'fr.openent.presences.controller.CalendarController|getCalendarCourses',
   managePresences: 'fr.openent.presences.controller.FakeRight|managePresences',
   readPresences: 'fr.openent.presences.controller.FakeRight|readPresence',
@@ -55,6 +56,7 @@ export interface Rights {
   managePresencesList: boolean;
   /** Widget des absences du tableau de bord. */
   widgetAbsences: boolean;
+  widgetCurrentCourse: boolean;
   /** Relancer l'enseignant d'un appel oublié. */
   notifyTeacher: boolean;
   /** Exporter la liste des appels. */
@@ -110,6 +112,7 @@ export function useRights(): Rights {
     widgetDayCourses: has(WORKFLOW.widgetDayCourses),
     widgetDayPresences: has(WORKFLOW.widgetDayPresences),
     widgetAbsences: has(WORKFLOW.widgetAbsences),
+    widgetCurrentCourse: has(WORKFLOW.widgetCurrentCourse),
     viewCalendar: has(WORKFLOW.viewCalendar),
     managePresences: has(WORKFLOW.managePresences),
   };
@@ -129,5 +132,5 @@ export function useRights(): Rights {
   };
   const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, widgetAbsences: b(flags.widgetAbsences), statements, notifyTeacher: b(flags.notifyTeacher), exportCourses: b(flags.exportCourses), presencesList: b(flags.readPresences) || b(flags.readPresenceRestricted), managePresencesList: b(flags.createPresence) || b(flags.updatePresence), calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
+  return { ready, ...out, widgetAbsences: b(flags.widgetAbsences), widgetCurrentCourse: b(flags.widgetCurrentCourse), statements, notifyTeacher: b(flags.notifyTeacher), exportCourses: b(flags.exportCourses), presencesList: b(flags.readPresences) || b(flags.readPresenceRestricted), managePresencesList: b(flags.createPresence) || b(flags.updatePresence), calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }
