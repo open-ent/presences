@@ -17,6 +17,8 @@ export const WORKFLOW = {
   readPresenceRestricted: 'fr.openent.presences.controller.FakeRight|readPresenceRestricted',
   createPresence: 'fr.openent.presences.controller.PresencesController|createPresence',
   updatePresence: 'fr.openent.presences.controller.PresencesController|updatePresence',
+  notifyTeacher: 'fr.openent.presences.controller.CourseController|notify',
+  exportCourses: 'fr.openent.presences.controller.CourseController|exportCourses',
   readRegistry: 'fr.openent.presences.controller.RegistryController|getRegistry',
   search: 'fr.openent.presences.controller.SearchController|searchUsers',
   manageForgottenNotebook: 'fr.openent.presences.controller.NotebookController|worflowManageForgottenNotebook',
@@ -51,6 +53,10 @@ export interface Rights {
   presencesList: boolean;
   /** Créer et modifier des présences. */
   managePresencesList: boolean;
+  /** Relancer l'enseignant d'un appel oublié. */
+  notifyTeacher: boolean;
+  /** Exporter la liste des appels. */
+  exportCourses: boolean;
   /** Consulter le calendrier d'un élève. */
   calendar: boolean;
   /** Consulter le registre mensuel (droit registre ou droit de recherche). */
@@ -88,6 +94,8 @@ export function useRights(): Rights {
     readPresenceRestricted: has(WORKFLOW.readPresenceRestricted),
     createPresence: has(WORKFLOW.createPresence),
     updatePresence: has(WORKFLOW.updatePresence),
+    notifyTeacher: has(WORKFLOW.notifyTeacher),
+    exportCourses: has(WORKFLOW.exportCourses),
     readRegistry: has(WORKFLOW.readRegistry),
     search: has(WORKFLOW.search),
     manageForgottenNotebook: has(WORKFLOW.manageForgottenNotebook),
@@ -119,5 +127,5 @@ export function useRights(): Rights {
   };
   const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, statements, presencesList: b(flags.readPresences) || b(flags.readPresenceRestricted), managePresencesList: b(flags.createPresence) || b(flags.updatePresence), calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
+  return { ready, ...out, statements, notifyTeacher: b(flags.notifyTeacher), exportCourses: b(flags.exportCourses), presencesList: b(flags.readPresences) || b(flags.readPresenceRestricted), managePresencesList: b(flags.createPresence) || b(flags.updatePresence), calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }

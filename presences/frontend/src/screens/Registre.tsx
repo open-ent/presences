@@ -1,6 +1,7 @@
 import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { api, Course } from '../api';
@@ -34,7 +35,9 @@ export function Registre() {
   const { structureId } = useStructure();
   const isTeacher = user?.type === 'ENSEIGNANT';
 
-  const [date, setDate] = useState(todayIso());
+  const [params] = useSearchParams();
+  const [date, setDate] = useState(params.get('date') ?? todayIso());
+  const wantedCourse = params.get('course');
   const [mineOnly, setMineOnly] = useState<boolean | null>(null);
   const [openCourse, setOpenCourse] = useState<Course | null>(null);
   const [registerId, setRegisterId] = useState<number | null>(null);
@@ -48,6 +51,8 @@ export function Registre() {
     enabled: !!structureId && !!date,
   });
   const courses = coursesQuery.data ?? [];
+  // Arrivée depuis la liste des appels (`?date=…&course=…`) : le cours demandé s'ouvre d'emblée.
+  const [autoOpened, setAutoOpened] = useState(false);
 
   const registerQuery = useQuery({
     queryKey: ['presences', 'register', registerId],
@@ -81,6 +86,11 @@ export function Registre() {
     setActionError(false);
     openMut.mutate(course);
   };
+  useEffect(() => {
+    if (autoOpened || !wantedCourse) return;
+    const c = courses.find((x) => x.id === wantedCourse);
+    if (c) { setAutoOpened(true); openAppel(c); }
+  });
 
   /** Enregistre une action puis relit le registre ; un échec est signalé, jamais passé sous silence. */
   const act = useMutation({

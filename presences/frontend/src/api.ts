@@ -509,6 +509,18 @@ export const searchStaff = async (structureId: string, q: string): Promise<Array
   return all.filter((u) => !seen.has(u.id) && seen.add(u.id)).map((u) => ({ id: u.id, displayName: u.displayName ?? `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() }));
 };
 
+// ── Liste des appels (période, enseignants, classes, oublis, relance) ───────────
+import type { ListedCourse } from './courseList';
+
+/** Cours d'une période (GET /presences/courses) ; `url` vient de `coursesUrl`. */
+export const getCourseList = async (url: string): Promise<ListedCourse[]> => json<ListedCourse[]>(await fetch(url, base)).then((a) => a ?? []);
+
+/** Relance l'enseignant d'un appel oublié (POST /presences/courses/:id/notify). */
+export const notifyCourse = async (course: ListedCourse): Promise<void> => {
+  const res = await fetch(`/presences/courses/${encodeURIComponent(course.id)}/notify`, { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify({ start: course.startDate, end: course.endDate }) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -864,7 +876,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   searchStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
-  getPresenceList, savePresence, deletePresence, searchStaff, getCalendarCourses, getCalendarAbsences, getCalendarPresences, getCalendarGroupStudents, getStudentClass, updateAbsence, deleteAbsence, getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
+  getCourseList, notifyCourse, getPresenceList, savePresence, deletePresence, searchStaff, getCalendarCourses, getCalendarAbsences, getCalendarPresences, getCalendarGroupStudents, getStudentClass, updateAbsence, deleteAbsence, getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
   getPlannedAbsences, getAbsenceMarkers, setAbsenceReason, regularizeAbsences, getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getExemptionsPage, saveExemption, deleteExemption, getSubjects,

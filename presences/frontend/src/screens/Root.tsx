@@ -32,6 +32,7 @@ export function Root() {
             {!(user?.type === 'ELEVE' || user?.type === 'PERSRELELEVE') && <nav className="btn-group mb-16" aria-label="Navigation présences">
               {tab('/', 'Tableau de bord', true)}
               {rights.readRegister && tab('/registre', "Registre d'appel")}
+              {rights.readRegister && tab('/appels', 'Liste des appels')}
               {rights.presencesList && tab('/presences-saisies', 'Présences')}
               {rights.registry && tab('/registre-mensuel', 'Registre mensuel')}
               {rights.absences && tab('/absences', 'Saisie des absences')}
