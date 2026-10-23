@@ -104,6 +104,9 @@ export function PresencesSaisies() {
       <h1 className="mb-16">{t('presences.presences.title', { defaultValue: 'Présences' })}</h1>
       <QueryErrors queries={[listQuery]} />
 
+      {/* Liste d'abord : filtres et résultats sont masqués le temps de la saisie. */}
+      {!form && (
+        <>
       <div className="d-flex gap-24 flex-wrap mb-12">
         <div style={{ minWidth: 240 }}>
           <StudentSearch id="ps-student" label={t('presences.exemptions.search.student', { defaultValue: 'Rechercher un élève' })} structureId={structureId} selected={students} onAdd={(s) => setStudents([...students, s])} onRemove={(s) => setStudents(students.filter((x) => x.id !== s.id))} />
@@ -143,6 +146,8 @@ export function PresencesSaisies() {
         </span>
       </div>
       {total > 1000 && <p className="text-muted">{t('presences.presences.csv.full', { defaultValue: "Trop de présences pour l'export : réduisez la période." })}</p>}
+        </>
+      )}
       {message && <div className="alert alert-success" role="status" data-notice>{message}</div>}
 
       {form && (
@@ -218,6 +223,8 @@ export function PresencesSaisies() {
         </form>
       )}
 
+      {!form && (
+        <>
       {listQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
       {!listQuery.isLoading && !listQuery.isError && total === 0 && <p className="text-muted" data-empty>{t('presences.presences.empty', { defaultValue: 'Aucune présence sur la période.' })}</p>}
       {days.map((d) => (
@@ -235,6 +242,8 @@ export function PresencesSaisies() {
           </div>
         </section>
       ))}
+        </>
+      )}
     </div>
   );
 }

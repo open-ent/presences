@@ -130,6 +130,9 @@ export function AbsencesCollectives() {
       <h1 className="mb-16">{t('presences.collective.absences', { defaultValue: 'Absences collectives' })}</h1>
       <QueryErrors queries={[listQuery]} />
 
+      {/* Liste d'abord : filtres et tableau sont masqués le temps de la saisie. */}
+      {!(shown && form) && (
+        <>
       <div className="d-flex gap-24 flex-wrap align-items-end mb-12">
         <div style={{ minWidth: 260 }}>
           <AudienceSearch id="ca-class" label={t('presences.collective.absences.search.audience', { defaultValue: 'Rechercher une classe' })} structureId={structureId} selected={classes} onChange={(next) => { setClasses(next); setPage(0); }} />
@@ -147,7 +150,8 @@ export function AbsencesCollectives() {
           <button type="button" className="btn btn-primary" data-new-collective onClick={openCreate}>{t('presences.collective.absences.button.form', { defaultValue: 'Nouvelle absence collective' })}</button>
         </span>
       </div>
-
+        </>
+      )}
       {message && <div className="alert alert-success" role="status" data-notice>{message}</div>}
 
       {shown && form && (
@@ -277,6 +281,8 @@ export function AbsencesCollectives() {
         </form>
       )}
 
+      {!(shown && form) && (
+        <>
       {listQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
       {!listQuery.isLoading && !listQuery.isError && items.length === 0 && <p className="text-muted" data-empty>{t('presences.collective.absences.empty', { defaultValue: 'Aucune absence collective sur la période.' })}</p>}
       {items.length > 0 && (
@@ -306,6 +312,8 @@ export function AbsencesCollectives() {
         </div>
       )}
       <Pager page={page} hasNext={items.length >= 20 || (listQuery.data?.page_count ?? 1) > page + 1} onChange={setPage} />
+        </>
+      )}
     </div>
   );
 }
