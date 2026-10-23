@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { api } from '../api';
 import { QueryErrors } from '../components/QueryErrors';
-import { StudentSearch } from '../components/StudentSearch';
+import { StudentOrClassSearch } from '../components/StudentOrClassSearch';
 import { useRights } from '../rights';
 import { useStructure } from '../structure';
 import {
@@ -114,7 +114,7 @@ export function CalendrierEleve() {
       <div>
         <h1 className="mb-12">{t('presences.event.calendar.title', { defaultValue: "Calendrier de l'élève" })}</h1>
         <div style={{ maxWidth: 360 }} className="mb-12" data-choose-student>
-          <StudentSearch id="cal-student" label={t('presences.dashboard.search.placeholder', { defaultValue: 'Rechercher un élève' })} structureId={structureId} selected={[]} hideChips onAdd={(s) => goStudent(s.id)} />
+          <StudentOrClassSearch id="cal-student" structureId={structureId} onPick={goStudent} />
         </div>
         <div className="alert alert-info" role="alert">{t('presences.calendar.choose', { defaultValue: 'Choisissez un élève pour afficher son calendrier.' })}</div>
       </div>
@@ -128,7 +128,7 @@ export function CalendrierEleve() {
 
       <div className="d-flex gap-24 flex-wrap align-items-end mb-12">
         <div style={{ minWidth: 260 }}>
-          <StudentSearch id="cal-student" label={t('presences.dashboard.search.placeholder', { defaultValue: 'Rechercher un élève' })} structureId={structureId} selected={[]} hideChips onAdd={(s) => goStudent(s.id)} />
+          <StudentOrClassSearch id="cal-student" structureId={structureId} onPick={goStudent} />
         </div>
         <div className="d-flex align-items-center gap-8" data-student-card>
           <img src={`/viescolaire/structures/${structureId}/students/${studentId}/picture`} alt="" width={48} height={48} style={{ borderRadius: '50%' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { api } from '../api';
 import { ouiNon, seuil, visibleByLabel } from '../utils';
+import { Tabs } from '../components/Tabs';
 import { QueryErrors } from '../components/QueryErrors';
 import { useStructure } from '../structure';
 
@@ -116,7 +117,9 @@ export function Dashboard() {
         {t('presences.dashboard.intro', { defaultValue: "Paramétrage de la présence pour l'établissement." })}
       </p>
 
-      <div className="d-flex gap-16 flex-wrap align-items-start mb-16">
+      <Tabs label={t('presences.parametrage.tabs', { defaultValue: 'Blocs du paramétrage' })} tabs={[
+        { key: 'reasons', label: t('presences.reasons', { defaultValue: "Motifs d'absence" }), content: (
+          <div>
         {/* Motifs d'absence : liste + création + suppression */}
         <section className="card p-16 flex-grow-1" style={{ minWidth: 300 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
@@ -154,22 +157,29 @@ export function Dashboard() {
             </ul>
           )}
         </section>
-
+          </div>
+        ) },
+        { key: 'actions', label: t('presences.actions', { defaultValue: 'Actions' }), content: (
+          <div>
         {crudCard({
           title: t('presences.actions', { defaultValue: 'Actions' }), items: actions, loading: actionsQuery.isLoading,
           emptyText: t('presences.actions.empty', { defaultValue: 'Aucune action.' }),
           inputId: 'action-label', value: actionLabel, setValue: setActionLabel,
           onAdd: () => createActionMut.mutate(), adding: createActionMut.isPending, onDelete: (id) => deleteActionMut.mutate(id),
         })}
+          </div>
+        ) },
+        { key: 'disciplines', label: t('presences.disciplines', { defaultValue: 'Dispositifs' }), content: (
+          <div>
         {crudCard({
           title: t('presences.disciplines', { defaultValue: 'Dispositifs' }), items: disciplines, loading: disciplinesQuery.isLoading,
           emptyText: t('presences.disciplines.empty', { defaultValue: 'Aucun dispositif.' }),
           inputId: 'discipline-label', value: disciplineLabel, setValue: setDisciplineLabel,
           onAdd: () => createDisciplineMut.mutate(), adding: createDisciplineMut.isPending, onDelete: (id) => deleteDisciplineMut.mutate(id),
         })}
-      </div>
-
-      {/* Réglages d'alerte */}
+          </div>
+        ) },
+        { key: 'thresholds', label: t('presences.alerts.thresholds', { defaultValue: "Seuils d'alerte" }), content: (
       <section className="card p-16" style={{ maxWidth: 640 }}>
         <h2 style={{ fontSize: 18 }} className="mb-12">{t('presences.alerts', { defaultValue: "Seuils d'alerte" })}</h2>
         {settingsQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
@@ -185,6 +195,9 @@ export function Dashboard() {
           </table>
         )}
       </section>
+        ) },
+      ]} />
+
     </div>
   );
 }

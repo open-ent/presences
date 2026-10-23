@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 
 import { api, ForgottenRegister, Statement } from '../api';
 import { AbsencesWidget } from '../components/AbsencesWidget';
+import { Tabs } from '../components/Tabs';
 import { CurrentCourseWidget } from '../components/CurrentCourseWidget';
 import { useMultipleSlot } from '../multipleSlot';
 import { ALERT_TYPES, alerteLabel, classeLabel, dateFr, eleveNom, heure, jour } from '../utils';
@@ -63,34 +64,8 @@ export function Accueil() {
   const subjectName = (r: ForgottenRegister) => r.subject_name || r.subject?.name || t('presences.course', { defaultValue: 'Cours' });
   const statementLabel = (s: Statement) => `${dateFr(s.start_at)}${s.end_at && dateFr(s.end_at) !== dateFr(s.start_at) ? ` → ${dateFr(s.end_at)}` : ''}`;
 
-  return (
-    <div>
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-8 mb-16">
-        <h1 className="m-0">{t('presences.dashboard.title', { defaultValue: 'Tableau de bord' })}</h1>
-      <QueryErrors queries={[rights.widgetAlerts && summaryQuery, rights.widgetForgottenRegisters && forgottenQuery, rights.widgetStatements && statementsQuery, rights.readEvent && todayEventsQuery, rights.widgetDayCourses && coursesQuery, rights.widgetDayPresences && presencesQuery].filter((q): q is typeof summaryQuery => !!q)} />
-        {/* Parité Angular : date du jour + nombre d'absents du jour */}
-        <div className="d-flex align-items-center gap-16">
-          <strong style={{ textTransform: 'capitalize' }}>
-            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </strong>
-          {rights.readEvent && (
-            <span className="badge bg-secondary" style={{ fontSize: 13 }}>
-              {t('presences.absents.today', { defaultValue: "Nombre d'absents :" })} {absentsToday}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {rights.ready && !rights.staff && (
-        <div className="alert alert-info" role="status" data-no-rights>
-          {t('presences.no.rights', { defaultValue: "Votre compte n'a accès à aucune fonction de ce module." })}
-        </div>
-      )}
-      {rights.widgetCurrentCourse && <CurrentCourseWidget structureId={structureId} />}
-      {rights.widgetAbsences && <AbsencesWidget structureId={structureId} />}
-
-      {/* Synthèse des alertes : une carte KPI par type de seuil franchi */}
-      {rights.widgetAlerts && (
+  const blocks = {
+    widgetAlerts: (
 <section className="mb-24">
         <h2 style={{ fontSize: 18 }} className="mb-12">{t('presences.alerts', { defaultValue: 'Alertes' })}</h2>
         {summaryQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
@@ -106,11 +81,8 @@ export function Accueil() {
           })}
         </div>
       </section>
-)}
-
-      <div className="d-flex gap-16 flex-wrap align-items-start">
-        {/* Appels oubliés du jour */}
-        {rights.widgetForgottenRegisters && (
+    ),
+    widgetForgottenRegisters: (
 <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.forgotten.registers', { defaultValue: 'Appels oubliés du jour' })}{' '}
@@ -134,10 +106,8 @@ export function Accueil() {
             </ul>
           )}
         </section>
-)}
-
-        {/* Déclarations d'absence des parents à traiter */}
-        {rights.widgetStatements && (
+    ),
+    widgetStatements: (
 <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.statements.title', { defaultValue: "Déclarations d'absence des parents" })}{' '}
@@ -163,10 +133,8 @@ export function Accueil() {
             </ul>
           )}
         </section>
-)}
-
-        {/* Appels du jour : cours de la journée avec l'état de l'appel (parité Angular) */}
-        {rights.widgetDayCourses && (
+    ),
+    widgetDayCourses: (
 <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.today.calls', { defaultValue: 'Appels du jour' })}{' '}
@@ -203,10 +171,8 @@ export function Accueil() {
             </ul>
           )}
         </section>
-)}
-
-        {/* Présences du jour : présences saisies (parité Angular) */}
-        {rights.widgetDayPresences && (
+    ),
+    widgetDayPresences: (
 <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
           <h2 style={{ fontSize: 18 }} className="mb-12">
             {t('presences.today.presences', { defaultValue: 'Présences du jour' })}{' '}
@@ -227,8 +193,41 @@ export function Accueil() {
             </ul>
           )}
         </section>
-)}
+    ),
+  };
+
+  return (
+    <div>
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-8 mb-16">
+        <h1 className="m-0">{t('presences.dashboard.title', { defaultValue: 'Tableau de bord' })}</h1>
+      <QueryErrors queries={[rights.widgetAlerts && summaryQuery, rights.widgetForgottenRegisters && forgottenQuery, rights.widgetStatements && statementsQuery, rights.readEvent && todayEventsQuery, rights.widgetDayCourses && coursesQuery, rights.widgetDayPresences && presencesQuery].filter((q): q is typeof summaryQuery => !!q)} />
+        {/* Parité Angular : date du jour + nombre d'absents du jour */}
+        <div className="d-flex align-items-center gap-16">
+          <strong style={{ textTransform: 'capitalize' }}>
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </strong>
+          {rights.readEvent && (
+            <span className="badge bg-secondary" style={{ fontSize: 13 }}>
+              {t('presences.absents.today', { defaultValue: "Nombre d'absents :" })} {absentsToday}
+            </span>
+          )}
+        </div>
       </div>
+
+      {rights.ready && !rights.staff && (
+        <div className="alert alert-info" role="status" data-no-rights>
+          {t('presences.no.rights', { defaultValue: "Votre compte n'a accès à aucune fonction de ce module." })}
+        </div>
+      )}
+      <Tabs label={t('presences.dashboard.tabs', { defaultValue: 'Blocs du tableau de bord' })} tabs={[
+        { key: 'current-course', label: t('presences.widgets.current.course', { defaultValue: 'Cours en cours' }), visible: rights.widgetCurrentCourse, content: <CurrentCourseWidget structureId={structureId} /> },
+        { key: 'absences', label: t('presences.widgets.absences', { defaultValue: 'Absences' }), visible: rights.widgetAbsences, content: <AbsencesWidget structureId={structureId} /> },
+        { key: 'alerts', label: t('presences.alerts', { defaultValue: 'Alertes' }), visible: rights.widgetAlerts, content: blocks.widgetAlerts },
+        { key: 'forgotten', label: t('presences.forgotten.registers', { defaultValue: 'Appels oubliés' }), visible: rights.widgetForgottenRegisters, content: blocks.widgetForgottenRegisters },
+        { key: 'statements', label: t('presences.statements', { defaultValue: "Déclarations d'absence" }), visible: rights.widgetStatements, content: blocks.widgetStatements },
+        { key: 'day-courses', label: t('presences.today.calls', { defaultValue: 'Appels du jour' }), visible: rights.widgetDayCourses, content: blocks.widgetDayCourses },
+        { key: 'day-presences', label: t('presences.today.presences', { defaultValue: 'Présences du jour' }), visible: rights.widgetDayPresences, content: blocks.widgetDayPresences },
+      ]} />
     </div>
   );
 }
