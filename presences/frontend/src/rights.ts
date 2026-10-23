@@ -14,6 +14,10 @@ export const WORKFLOW = {
   widgetAlerts: 'fr.openent.presences.controller.FakeRight|widgetAlerts',
   widgetForgottenRegisters: 'fr.openent.presences.controller.FakeRight|widgetForgottenRegisters',
   widgetStatements: 'fr.openent.presences.controller.FakeRight|widgetStatements',
+  readRegistry: 'fr.openent.presences.controller.RegistryController|getRegistry',
+  search: 'fr.openent.presences.controller.SearchController|searchUsers',
+  manageForgottenNotebook: 'fr.openent.presences.controller.NotebookController|worflowManageForgottenNotebook',
+  presences1D: 'fr.openent.presences.controller.FakeRight|presences1D',
   manageCollectiveAbsences: 'fr.openent.presences.controller.CollectiveAbsenceController|manageCollectiveAbsences',
   manageStatements: 'fr.openent.presences.controller.StatementAbsenceController|validate',
   manageStatementsRestricted: 'fr.openent.presences.controller.FakeRight|manageAbsenceStatementsRestricted',
@@ -40,6 +44,12 @@ export interface Rights {
   widgetStatements: boolean;
   /** Consulter et traiter les déclarations d'absence des parents (droit complet, restreint ou de lecture). */
   statements: boolean;
+  /** Consulter le registre mensuel (droit registre ou droit de recherche). */
+  registry: boolean;
+  /** Gérer les carnets oubliés. */
+  forgottenNotebook: boolean;
+  /** Établissement du 1er degré : pas d'incidents ni de punitions dans les vues. */
+  oneD: boolean;
   /** Gérer les absences collectives. */
   collectiveAbsences: boolean;
   /** Déposer une déclaration d'absence (responsable légal). */
@@ -65,6 +75,10 @@ export function useRights(): Rights {
     widgetAlerts: has(WORKFLOW.widgetAlerts),
     widgetForgottenRegisters: has(WORKFLOW.widgetForgottenRegisters),
     widgetStatements: has(WORKFLOW.widgetStatements),
+    readRegistry: has(WORKFLOW.readRegistry),
+    search: has(WORKFLOW.search),
+    manageForgottenNotebook: has(WORKFLOW.manageForgottenNotebook),
+    presences1D: has(WORKFLOW.presences1D),
     manageCollectiveAbsences: has(WORKFLOW.manageCollectiveAbsences),
     manageStatements: has(WORKFLOW.manageStatements),
     manageStatementsRestricted: has(WORKFLOW.manageStatementsRestricted),
@@ -92,5 +106,5 @@ export function useRights(): Rights {
   };
   const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, statements, collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
+  return { ready, ...out, statements, registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }

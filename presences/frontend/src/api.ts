@@ -414,6 +414,12 @@ export const searchGlobal = async (structureId: string, q: string): Promise<Glob
 export const getGroupMembers = async (groupId: string): Promise<Array<{ id: string; firstName?: string; lastName?: string }>> =>
   json<Array<{ id: string; firstName?: string; lastName?: string }>>(await fetch(`/presences/users?groupId=${groupId}&type=GROUP`, base)).then((a) => a ?? []);
 
+// ── Registre mensuel ─────────────────────────────────────────────────────────────
+import type { RegistryStudent } from './registry';
+
+/** Registre du mois (GET /presences/registry) ; `url` vient de `registryUrl`. */
+export const getRegistry = async (url: string): Promise<RegistryStudent[]> => json<RegistryStudent[]>(await fetch(url, base)).then((a) => a ?? []);
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -769,7 +775,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   searchStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
-  getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
+  getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
   getPlannedAbsences, getAbsenceMarkers, setAbsenceReason, regularizeAbsences, getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,
