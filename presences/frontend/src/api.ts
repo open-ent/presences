@@ -340,6 +340,35 @@ export const searchAudiences = async (structureId: string, q: string): Promise<A
   return hits;
 };
 
+// ── Absences prévues (liste de la structure) ─────────────────────────────────────
+import type { PlannedAbsence } from './plannedAbsences';
+
+export interface PlannedPage { page: number; all: PlannedAbsence[] }
+
+/** Absences de la structure (GET /presences/absences, paginé) ; `url` vient de `listUrl`. */
+export const getPlannedAbsences = async (url: string): Promise<PlannedPage> => {
+  const d = await json<{ page?: number; all?: PlannedAbsence[] } | PlannedAbsence[] | null>(await fetch(url, base));
+  if (Array.isArray(d)) return { page: 0, all: d };
+  return { page: d?.page ?? 0, all: d?.all ?? [] };
+};
+
+/** Repères du jour : élèves absents à la journée et internes absents. */
+export interface AbsenceMarkers { nb_day_students?: number; nb_internals?: number }
+export const getAbsenceMarkers = async (structureId: string, startAt: string, endAt: string): Promise<AbsenceMarkers> =>
+  json<AbsenceMarkers>(await fetch(`/presences/structures/${structureId}/absences/markers?startAt=${encodeURIComponent(startAt)}&endAt=${encodeURIComponent(endAt)}`, base));
+
+/** Change le motif d'absences (PUT /presences/absence/reason) ; null = sans motif. */
+export const setAbsenceReason = async (ids: number[], reasonId: number | null): Promise<void> => {
+  const res = await fetch('/presences/absence/reason', { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify({ ids, reasonId }) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Régularise (ou dé-régularise) des absences (PUT /presences/absence/regularized). */
+export const regularizeAbsences = async (ids: number[], regularized: boolean): Promise<void> => {
+  const res = await fetch('/presences/absence/regularized', { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify({ ids, regularized }) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -695,7 +724,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   searchStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
-  getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
+  getPlannedAbsences, getAbsenceMarkers, setAbsenceReason, regularizeAbsences, getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,
   getPresences, getStudentEvents, getChildren,

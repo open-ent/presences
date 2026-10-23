@@ -1,5 +1,6 @@
 import { RouteObject, createHashRouter } from 'react-router-dom';
 
+import { AbsencesPrevues } from './screens/AbsencesPrevues';
 import { Alertes } from './screens/Alertes';
 import { Absences } from './screens/Absences';
 import { Dashboard } from './screens/Dashboard';
@@ -20,6 +21,7 @@ export const routes: RouteObject[] = [
       { path: 'registre', element: <Guard right="readRegister"><Registre /></Guard> },
       { path: 'absences', element: <Guard right="absences"><Absences /></Guard> },
       { path: 'regularisation', element: <Guard right="readEvent"><Regularisation /></Guard> },
+      { path: 'absences-prevues', element: <Guard right="absences"><AbsencesPrevues /></Guard> },
       { path: 'alertes', element: <Guard right="widgetAlerts"><Alertes /></Guard> },
       { path: 'declarations', element: <Guard right="statements"><Declarations /></Guard> },
       { path: 'dispenses', element: <Guard right="readExemption"><Dispenses /></Guard> },
