@@ -420,6 +420,31 @@ import type { RegistryStudent } from './registry';
 /** Registre du mois (GET /presences/registry) ; `url` vient de `registryUrl`. */
 export const getRegistry = async (url: string): Promise<RegistryStudent[]> => json<RegistryStudent[]>(await fetch(url, base)).then((a) => a ?? []);
 
+// ── Dispenses (liste complète, création, modification, suppression) ─────────────
+import type { ExemptionForm, RawExemption } from './exemptions';
+import { exemptionBody, exemptionDeleteUrl, exemptionEditUrl } from './exemptions';
+
+export interface ExemptionsPage { page: number; pageCount: number; values: RawExemption[] }
+
+/** Dispenses de la structure (GET /presences/exemptions) ; `params` vient de `exemptionParams`, page comprise. */
+export const getExemptionsPage = async (params: string, page: number): Promise<ExemptionsPage> => {
+  const d = await json<{ page_count?: number; values?: RawExemption[] } | null>(await fetch(`/presences/exemptions${params}`, base));
+  return { page, pageCount: d?.page_count ?? 1, values: d?.values ?? [] };
+};
+
+/** Crée (POST) ou modifie (PUT) une dispense ponctuelle ou récurrente. */
+export const saveExemption = async (form: ExemptionForm): Promise<void> => {
+  const url = form.editing ? exemptionEditUrl(form.editing) : '/presences/exemptions';
+  const res = await fetch(url, { ...base, method: form.editing ? 'PUT' : 'POST', headers: mutHeaders(), body: JSON.stringify(exemptionBody(form)) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Supprime une dispense ponctuelle ou récurrente. */
+export const deleteExemption = async (e: RawExemption): Promise<void> => {
+  const res = await fetch(exemptionDeleteUrl(e), { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -778,6 +803,6 @@ export const api = {
   getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
   getPlannedAbsences, getAbsenceMarkers, setAbsenceReason, regularizeAbsences, getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
-  getExemptions, createExemption, getSubjects,
+  getExemptions, createExemption, getExemptionsPage, saveExemption, deleteExemption, getSubjects,
   getPresences, getStudentEvents, getChildren,
 };
