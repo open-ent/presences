@@ -106,6 +106,9 @@ export function Dispenses() {
       <h1 className="mb-16">{t('presences.exemptions.title', { defaultValue: 'Dispenses' })}</h1>
       <QueryErrors queries={[listQuery, subjectsQuery]} />
 
+      {/* Liste d'abord : filtres et tableau sont masqués le temps de la saisie. */}
+      {!form && (
+        <>
       <div className="d-flex gap-24 flex-wrap align-items-end mb-12">
         <div style={{ minWidth: 260 }}>
           <StudentSearch
@@ -133,6 +136,8 @@ export function Dispenses() {
         </span>
       </div>
       {tooMany && <p className="text-muted" data-too-many>{t('presences.exemptions.csv.toMuchExemptions', { defaultValue: "Trop de dispenses pour l'export : réduisez la période." })}</p>}
+        </>
+      )}
       {message && <div className="alert alert-success" role="status" data-notice>{message}</div>}
 
       {form && (
@@ -223,6 +228,8 @@ export function Dispenses() {
         </form>
       )}
 
+      {!form && (
+        <>
       {listQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
       {!listQuery.isLoading && !listQuery.isError && rows.length === 0 && <p className="text-muted" data-empty>{t('presences.exemptions.empty', { defaultValue: 'Aucune dispense sur la période.' })}</p>}
       {rows.length > 0 && (
@@ -254,6 +261,8 @@ export function Dispenses() {
         </div>
       )}
       <Pager page={page} hasNext={pageCount > page + 1 || rows.length >= 20 && pageCount > page + 1} onChange={setPage} />
+        </>
+      )}
     </div>
   );
 }
