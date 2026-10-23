@@ -1,7 +1,8 @@
 import { useEdificeClient } from '@open-ent/react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api';
 import { AudienceSearch, PickedAudience } from '../components/AudienceSearch';
@@ -69,6 +70,20 @@ export function Dispenses() {
     mutationFn: (e: RawExemption) => api.deleteExemption(e),
     onSuccess: () => { setMessage(t('presences.exemptions.delete.succeed', { defaultValue: 'Dispense supprimée.' })); setForm(null); invalidate(); },
   });
+
+  // Arrivée depuis le calendrier d'un élève (`#/dispenses?student=id~nom&start=&end=`) : formulaire ouvert et prérempli.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedStudent = searchParams.get('student');
+  useEffect(() => {
+    if (!linkedStudent || !structureId || !canManage || subjects.length === 0) return;
+    const [id, ...rest] = linkedStudent.split('~');
+    const start = searchParams.get('start') ?? jour(new Date());
+    const base = emptyExemptionForm(structureId, start, defaultSubject(subjects));
+    setForm({ ...base, students: [{ id, name: rest.length > 0 ? decodeURIComponent(rest.join('~')) : id }], endDate: searchParams.get('end') ?? base.endDate });
+    setSubmitted(false);
+    setMessage('');
+    setSearchParams({}, { replace: true });
+  }, [linkedStudent, structureId, canManage, subjects.length]);
 
   const patch = (p: Partial<ExemptionForm>) => setForm((f) => (f ? { ...f, ...p } : f));
   const openCreate = () => { setForm(emptyExemptionForm(structureId, jour(new Date()), defaultSubject(subjects))); setSubmitted(false); setMessage(''); };

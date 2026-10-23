@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  absencesOf, absencesUrl, addDays, calendarLink, courseBox, coursesOfDay, coursesUrl, courseTone, dayBounds, dayName, eventSummary, hasSaturday, mondayOf, shortComment, weekDays, weekLabel,
+  absencesOf, absencesUrl, addDays, calendarLink, courseBox, coursesOfDay, coursesUrl, courseTone, dayBounds, dayName, eventSummary, hasSaturday, mondayOf, shortComment, weekDays, weekLabel, hhmm, latenessTimeValid, notebookProgress, exemptionLink, stampOf,
 } from './studentCalendar';
 
 const course = (start: string, end: string, extra = {}) => ({ startDate: start, endDate: end, subjectName: 'Maths', ...extra });
@@ -54,5 +54,27 @@ describe('studentCalendar', () => {
     expect(Math.round(box.height)).toBe(10);
     expect(coursesOfDay([cs[1], cs[0]], '2026-10-20').map((c) => c.startDate.slice(11, 16))).toEqual(['07:30', '17:00']);
     expect(hasSaturday([course('2026-10-24 08:00:00', '2026-10-24 09:00:00')], '2026-10-19')).toBe(true);
+  });
+});
+
+describe('studentCalendar — retard, carnet, dispense', () => {
+  it('extrait et compose les heures', () => {
+    expect(hhmm('2026-10-23T08:05:00')).toBe('08:05');
+    expect(hhmm('2026-10-23 08:05:00')).toBe('08:05');
+    expect(hhmm(undefined)).toBe('');
+    expect(stampOf('2026-10-23', '08:15')).toBe('2026-10-23 08:15:00');
+  });
+  it('valide l’heure d’arrivée dans les bornes du cours', () => {
+    expect(latenessTimeValid('08:15', '2026-10-23T08:00:00', '2026-10-23T09:00:00')).toBe(true);
+    expect(latenessTimeValid('09:01', '2026-10-23T08:00:00', '2026-10-23T09:00:00')).toBe(false);
+    expect(latenessTimeValid('', '2026-10-23T08:00:00', '2026-10-23T09:00:00')).toBe(false);
+  });
+  it('calcule les pastilles du carnet oublié', () => {
+    expect(notebookProgress(2, 3)).toEqual({ filled: 2, total: 3, after: 0 });
+    expect(notebookProgress(5, 3)).toEqual({ filled: 3, total: 3, after: 2 });
+    expect(notebookProgress(0, 0)).toEqual({ filled: 0, total: 0, after: 0 });
+  });
+  it('construit le lien de dispense', () => {
+    expect(exemptionLink('e1', 'DUPONT Léa', '2026-10-23')).toBe('#/dispenses?student=e1~DUPONT%20L%C3%A9a&start=2026-10-23&end=2026-10-23');
   });
 });

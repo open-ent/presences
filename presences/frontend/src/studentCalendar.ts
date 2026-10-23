@@ -9,6 +9,7 @@ export interface CalEvent {
   counsellor_regularisation?: boolean;
   followed?: boolean;
   comment?: string | null;
+  register_id?: number | null;
 }
 
 export interface CalAbsence {
@@ -158,3 +159,28 @@ export const dayName = (day: string): string => DAY_NAMES[(parse(day).getDay() +
 
 /** Lien vers le calendrier d'un élève à une date. */
 export const calendarLink = (studentId: string, date: string): string => `#/calendrier/${studentId}?date=${date.slice(0, 10)}`;
+
+/** « HH:mm » d'une date (« 2026-10-23T08:00:00 » ou « 2026-10-23 08:00:00 ») ; vide si illisible. */
+export const hhmm = (d?: string): string => /[T ](\d{2}:\d{2})/.exec(d ?? '')?.[1] ?? '';
+
+/** Horodatage serveur « YYYY-MM-DD HH:mm:00 » d'un jour et d'une heure. */
+export const stampOf = (day: string, time: string): string => `${day} ${time}:00`;
+
+/** Heure d'arrivée valide : comprise entre le début et la fin du cours (bornes incluses), comparée en « HH:mm ». */
+export function latenessTimeValid(time: string, courseStart: string, courseEnd: string): boolean {
+  return /^\d{2}:\d{2}$/.test(time) && time >= hhmm(courseStart) && time <= hhmm(courseEnd);
+}
+
+/**
+ * Pastilles du carnet oublié : jusqu'au seuil, une pastille pleine par oubli ; au-delà, seuil de pleines et « + n ».
+ * Exemple : 2 oublis, seuil 3 → 2 pleines sur 3 ; 5 oublis, seuil 3 → 3 pleines, après = 2.
+ */
+export function notebookProgress(count: number, threshold: number): { filled: number; total: number; after: number } {
+  const total = Math.max(threshold, 0);
+  const after = count > total ? count - total : 0;
+  return { filled: after > 0 ? total : Math.min(count, total), total, after };
+}
+
+/** Lien vers la création d'une dispense pour un élève, dates du cours préremplies (« id~nom encodé »). */
+export const exemptionLink = (studentId: string, name: string, day: string): string =>
+  `#/dispenses?student=${studentId}~${encodeURIComponent(name)}&start=${day}&end=${day}`;

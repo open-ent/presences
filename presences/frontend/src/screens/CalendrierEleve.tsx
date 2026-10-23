@@ -10,11 +10,12 @@ import { StudentSearch } from '../components/StudentSearch';
 import { useStructure } from '../structure';
 import {
   absencesOf, absencesUrl, addDays, CalCourse, courseBox, courseKey, courseName, coursesOfDay, coursesUrl, courseTone, dayBounds, dayName, eventSummary,
-  hasSaturday, isoDay, mondayOf, presencesUrl, shortComment, TONE_COLOR, TONE_LABEL, weekDays, weekLabel,
+  exemptionLink, hasSaturday, hhmm, isoDay, latenessTimeValid, mondayOf, notebookProgress, presencesUrl, shortComment, stampOf, TONE_COLOR, TONE_LABEL, weekDays, weekLabel,
 } from '../studentCalendar';
 import { visibleByLabel } from '../utils';
 
 const MANAGE = 'fr.openent.presences.controller.FakeRight|managePresences';
+const NOTEBOOK = 'fr.openent.presences.controller.NotebookController|worflowManageForgottenNotebook';
 const HEIGHT = 640;
 
 /**
@@ -31,11 +32,16 @@ export function CalendrierEleve() {
   const { studentId = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const canManage = useHasWorkflow(MANAGE) === true;
+  const canNotebook = useHasWorkflow(NOTEBOOK) === true;
 
   const today = isoDay(new Date());
   const monday = mondayOf(params.get('date') ?? today);
   const [selected, setSelected] = useState<string | null>(null);
   const [reasonId, setReasonId] = useState('');
+  const [lateTime, setLateTime] = useState('');
+  const [lateReason, setLateReason] = useState('');
+  const [lateComment, setLateComment] = useState('');
+  const [notebookDate, setNotebookDate] = useState(isoDay(new Date()));
 
   const stamp = String(Math.floor(Date.now() / 60000));
   const coursesQuery = useQuery({ queryKey: ['pres', 'cal-courses', structureId, studentId, monday], queryFn: () => api.getCalendarCourses(coursesUrl(structureId, studentId, monday, stamp)), enabled: !!structureId && !!studentId });
@@ -61,6 +67,15 @@ export function CalendrierEleve() {
 
   const goWeek = (m: string) => { setParams({ date: m }); setSelected(null); };
   const goStudent = (id: string) => { navigate(`/calendrier/${id}?date=${monday}`); setSelected(null); };
+  const choose = (key: string | null) => {
+    setSelected(key);
+    const c = courses.find((x, i) => courseKey(x, i) === key);
+    const late = c?.events?.find((e) => e.type_id === 2);
+    setLateTime(late ? hhmm(late.end_date) : c ? hhmm(c.startDate) : '');
+    setLateReason(late?.reason_id ? String(late.reason_id) : '');
+    setLateComment(late?.comment ?? '');
+    if (c) setNotebookDate(c.startDate.slice(0, 10));
+  };
   const invalidate = () => { qc.invalidateQueries({ queryKey: ['pres', 'cal-courses'] }); qc.invalidateQueries({ queryKey: ['pres', 'cal-absences'] }); };
   const createMut = useMutation({
     mutationFn: () => api.createAbsence(structureId, studentId, chosen!.startDate.slice(0, 19).replace('T', ' '), chosen!.endDate.slice(0, 19).replace('T', ' '), reasonId === '' ? null : Number(reasonId)),
@@ -71,6 +86,25 @@ export function CalendrierEleve() {
     onSuccess: invalidate,
   });
   const deleteMut = useMutation({ mutationFn: (id: number) => api.deleteAbsence(id), onSuccess: invalidate });
+
+  // Retard : l'heure d'arrivée est comprise dans le cours ; le serveur retrouve le registre du cours.
+  const lateReasons = visibleByLabel(reasonsQuery.data ?? []).filter((r) => r.reason_type_id === 2);
+  const chosenDay = chosen?.startDate.slice(0, 10) ?? today;
+  const chosenLateness = (chosen?.events ?? []).find((e) => e.type_id === 2);
+  const latenessInput = (time: string) => ({ studentId, startDate: stampOf(chosenDay, hhmm(chosen!.startDate)), endDate: stampOf(chosenDay, time), reasonId: lateReason === '' ? null : Number(lateReason), comment: lateComment, registerId: chosenLateness?.register_id });
+  const lateValid = !!chosen && latenessTimeValid(lateTime, chosen.startDate, chosen.endDate);
+  const latenessSaved = () => { invalidate(); };
+  const latenessMut = useMutation({
+    mutationFn: () => (chosenLateness?.id ? api.updateLateness(chosenLateness.id, latenessInput(lateTime)) : api.createLateness(structureId, latenessInput(lateTime))),
+    onSuccess: latenessSaved,
+  });
+  const latenessDeleteMut = useMutation({ mutationFn: (id: number) => api.deleteEvent(id), onSuccess: latenessSaved });
+
+  // Carnet de correspondance oublié : compteur et seuil d'alerte de l'élève.
+  const notebookQuery = useQuery({ queryKey: ['pres', 'cal-notebook', structureId, studentId], queryFn: () => api.getStudentNotebookCount(structureId, studentId), enabled: !!structureId && !!studentId && canNotebook });
+  const notebookMut = useMutation({ mutationFn: () => api.createForgottenNotebook(structureId, studentId, notebookDate), onSuccess: () => qc.invalidateQueries({ queryKey: ['pres', 'cal-notebook'] }) });
+  const notebookResetMut = useMutation({ mutationFn: () => api.resetStudentNotebookCount(structureId, studentId), onSuccess: () => qc.invalidateQueries({ queryKey: ['pres', 'cal-notebook'] }) });
+  const progress = notebookProgress(notebookQuery.data?.count ?? 0, notebookQuery.data?.threshold ?? 0);
 
   if (!studentId) return <div className="alert alert-info" role="alert">{t('presences.calendar.choose', { defaultValue: 'Choisissez un élève pour afficher son calendrier.' })}</div>;
 
@@ -110,7 +144,7 @@ export function CalendrierEleve() {
         <input type="date" className="form-control" style={{ width: 170 }} aria-label={t('presences.calendar.date', { defaultValue: 'Aller à la date' })} data-date value={params.get('date') ?? today} onChange={(e) => e.target.value && goWeek(mondayOf(e.target.value))} />
         {canManage && (
           <span className="ms-auto d-flex gap-8">
-            <a className="btn btn-outline-primary btn-sm" data-link-exemption href="#/dispenses">{t('presences.exemptions.create', { defaultValue: 'Dispense' })}</a>
+            <a className="btn btn-outline-primary btn-sm" data-link-exemption href={exemptionLink(studentId, name, chosen ? chosen.startDate.slice(0, 10) : today)}>{t('presences.exemptions.create', { defaultValue: 'Dispense' })}</a>
             <a className="btn btn-outline-primary btn-sm" data-link-punish href={`/incidents?ui=react#/punitions?students=${studentId}~${encodeURIComponent(name)}`}>{t('presences.alerts.punish', { defaultValue: 'Punition / sanction' })}</a>
           </span>
         )}
@@ -147,7 +181,7 @@ export function CalendrierEleve() {
                     data-course={key}
                     data-tone={tone}
                     aria-pressed={selected === key}
-                    onClick={() => setSelected(selected === key ? null : key)}
+                    onClick={() => choose(selected === key ? null : key)}
                     className="text-start"
                     style={{ position: 'absolute', left: 2, right: 2, top: `${box.top}%`, height: `${box.height}%`, overflow: 'hidden', border: selected === key ? '2px solid #0b5ed7' : '1px solid #bbb', borderLeft: `6px solid ${tone === 'none' ? '#bbb' : TONE_COLOR[tone]}`, background: c.exempted ? '#eef6ff' : '#fff', padding: '2px 4px', fontSize: 12 }}
                   >
@@ -217,7 +251,50 @@ export function CalendrierEleve() {
               <button type="button" className="btn btn-primary" data-absence-create disabled={createMut.isPending} onClick={() => createMut.mutate()}>{t('presences.calendar.mark.absent', { defaultValue: 'Déclarer absent sur ce cours' })}</button>
             </div>
           ) : null}
+          {canManage && (
+            <div className="border-top pt-12 mt-12" data-lateness-form>
+              <h3 style={{ fontSize: 15, fontWeight: 700 }}>{t('presences.register.event_type.lateness', { defaultValue: 'Retard' })}</h3>
+              <div className="d-flex gap-12 align-items-end flex-wrap">
+                <div>
+                  <label htmlFor="cal-late-time" className="form-label">{t('presences.arrival.time', { defaultValue: "Heure d'arrivée" })}</label>
+                  <input id="cal-late-time" type="time" className="form-control" value={lateTime} min={hhmm(chosen.startDate)} max={hhmm(chosen.endDate)} onChange={(e) => setLateTime(e.target.value)} />
+                </div>
+                <div>
+                  <label htmlFor="cal-late-reason" className="form-label">{t('presences.absence.reason', { defaultValue: 'Motif' })}</label>
+                  <select id="cal-late-reason" className="form-control" value={lateReason} onChange={(e) => setLateReason(e.target.value)}>
+                    <option value="">{t('presences.absence.select.empty', { defaultValue: 'Sans motif' })}</option>
+                    {lateReasons.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ flexGrow: 1, minWidth: 200 }}>
+                  <label htmlFor="cal-late-comment" className="form-label">{t('presences.comment', { defaultValue: 'Commentaire' })}</label>
+                  <input id="cal-late-comment" className="form-control" value={lateComment} onChange={(e) => setLateComment(e.target.value)} />
+                </div>
+                <button type="button" className="btn btn-primary" data-lateness-save disabled={!lateValid || latenessMut.isPending} onClick={() => latenessMut.mutate()}>
+                  {chosenLateness ? t('presences.save', { defaultValue: 'Enregistrer' }) : t('presences.calendar.mark.late', { defaultValue: 'Déclarer en retard' })}
+                </button>
+                {chosenLateness?.id && <button type="button" className="btn btn-outline-danger" data-lateness-delete disabled={latenessDeleteMut.isPending} onClick={() => latenessDeleteMut.mutate(chosenLateness.id!)}>{t('presences.delete', { defaultValue: 'Supprimer' })}</button>}
+              </div>
+              {lateTime !== '' && !lateValid && <p className="text-danger mt-4" role="alert" data-lateness-invalid>{t('presences.invalid.form', { defaultValue: "L'heure d'arrivée doit être comprise dans la durée du cours." })}</p>}
+              {(latenessMut.isError || latenessDeleteMut.isError) && <div className="alert alert-warning mt-8" role="alert" data-lateness-error>{t('presences.lateness.form.create.no.register', { defaultValue: "Impossible d'enregistrer le retard : aucun appel n'existe pour ce cours." })}</div>}
+            </div>
+          )}
           {(createMut.isError || reasonMut.isError || deleteMut.isError) && <div className="alert alert-warning mt-8" role="alert" data-action-error>{t('presences.error', { defaultValue: "L'opération a échoué." })}</div>}
+        </section>
+      )}
+      {canNotebook && (
+        <section className="border rounded p-16 mt-16" data-notebook aria-label={t('presences.forgotten.notebook', { defaultValue: 'Carnet oublié' })}>
+          <h2 style={{ fontSize: 18 }}>{t('presences.forgotten.notebook', { defaultValue: 'Carnet oublié' })}</h2>
+          <p className="mb-8">{t('presences.forgotten.notebook.form.recap', { defaultValue: 'Carnets oubliés (seuil avant alerte)' })} : <span data-notebook-count>{notebookQuery.data?.count ?? 0}</span> / {progress.total}{progress.after > 0 && <strong data-notebook-after> + {progress.after}</strong>}</p>
+          <div className="d-flex gap-12 align-items-end flex-wrap">
+            <div>
+              <label htmlFor="cal-notebook-date" className="form-label">{t('presences.the', { defaultValue: 'Le' })}</label>
+              <input id="cal-notebook-date" type="date" className="form-control" value={notebookDate} onChange={(e) => setNotebookDate(e.target.value)} />
+            </div>
+            <button type="button" className="btn btn-primary" data-notebook-create disabled={!notebookDate || notebookMut.isPending} onClick={() => notebookMut.mutate()}>{t('presences.forgotten.notebook.declare', { defaultValue: 'Déclarer un carnet oublié' })}</button>
+            <button type="button" className="btn btn-outline-secondary" data-notebook-reset disabled={(notebookQuery.data?.count ?? 0) === 0 || notebookResetMut.isPending} onClick={() => notebookResetMut.mutate()}>{t('presences.reset', { defaultValue: 'Réinitialiser' })}</button>
+          </div>
+          {(notebookMut.isError || notebookResetMut.isError) && <div className="alert alert-warning mt-8" role="alert" data-notebook-error>{t('presences.error', { defaultValue: "L'opération a échoué." })}</div>}
         </section>
       )}
       <p className="mt-12"><Link to="/">{t('presences.back', { defaultValue: 'Retour au tableau de bord' })}</Link></p>

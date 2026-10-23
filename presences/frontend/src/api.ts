@@ -869,7 +869,42 @@ export const getChildren = async (relativeId: string): Promise<Child[]> =>
     (arr ?? []).map((c) => ({ id: c.id, displayName: c.displayName ?? `${c.lastName ?? ''} ${c.firstName ?? ''}`.trim(), structureId: c.structure?.id })),
   );
 
+// ── Calendrier élève : retard sans registre ouvert, carnet de correspondance oublié ─
+export interface LatenessInput { studentId: string; startDate: string; endDate: string; reasonId: number | null; comment: string; registerId?: number | null }
+
+const latenessPayload = (b: LatenessInput) => ({
+  start_date: b.startDate, end_date: b.endDate, student_id: b.studentId, comment: b.comment, register_id: b.registerId ?? -1, type_id: 2, reason_id: b.reasonId,
+});
+
+/** Retard saisi depuis le calendrier : le serveur retrouve le registre du cours (`register_id` = -1). */
+export const createLateness = async (structureId: string, b: LatenessInput): Promise<void> => {
+  const res = await fetch(`/presences/events/${structureId}/lateness`, { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify(latenessPayload(b)) });
+  if (!res.ok && res.status !== 201) throw new Error(String(res.status));
+};
+
+export const updateLateness = async (id: number, b: LatenessInput): Promise<void> => {
+  const res = await fetch(`/presences/events/${id}`, { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify(latenessPayload(b)) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Nombre de carnets oubliés d'un élève et seuil d'alerte (GET /presences/structures/:id/students/:id/alerts). */
+export const getStudentNotebookCount = async (structureId: string, studentId: string): Promise<{ count: number; threshold: number }> => {
+  const d = await json<{ count?: number; threshold?: number } | null>(await fetch(`/presences/structures/${structureId}/students/${studentId}/alerts?type=FORGOTTEN_NOTEBOOK`, base));
+  return { count: d?.count ?? 0, threshold: d?.threshold ?? 0 };
+};
+
+export const resetStudentNotebookCount = async (structureId: string, studentId: string): Promise<void> => {
+  const res = await fetch(`/presences/structures/${structureId}/students/${studentId}/alerts/reset?type=FORGOTTEN_NOTEBOOK`, { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+export const createForgottenNotebook = async (structureId: string, studentId: string, date: string): Promise<void> => {
+  const res = await fetch(`/presences/forgotten/notebook`, { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify({ studentId, structureId, date }) });
+  if (!res.ok && res.status !== 201) throw new Error(String(res.status));
+};
+
 export const api = {
+  createLateness, updateLateness, getStudentNotebookCount, resetStudentNotebookCount, createForgottenNotebook,
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,
   createAction, deleteAction,
