@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { api, ForgottenRegister, Statement } from '../api';
 import { AbsencesWidget } from '../components/AbsencesWidget';
 import { CurrentCourseWidget } from '../components/CurrentCourseWidget';
+import { useMultipleSlot } from '../multipleSlot';
 import { ALERT_TYPES, alerteLabel, classeLabel, dateFr, eleveNom, heure, jour } from '../utils';
 import { QueryErrors } from '../components/QueryErrors';
 import { useRights } from '../rights';
@@ -37,7 +38,8 @@ export function Accueil() {
   // Absences du jour (parité Angular : compteur « Nombre d'absents » en tête de tableau de bord).
   const todayEventsQuery = useQuery({ queryKey: ['pres', 'events-today', structureId, start], queryFn: () => api.getEvents(structureId, start, end), enabled: !!structureId && rights.readEvent });
   // Appels du jour (cours de la journée) + présences saisies du jour.
-  const coursesQuery = useQuery({ queryKey: ['pres', 'courses-today', structureId, start], queryFn: () => api.getCourses(structureId, start), enabled: !!structureId && rights.widgetDayCourses });
+  const slots = useMultipleSlot(structureId);
+  const coursesQuery = useQuery({ queryKey: ['pres', 'courses-today', structureId, start, slots.value], queryFn: () => api.getCourses(structureId, start, undefined, slots.value), enabled: !!structureId && rights.widgetDayCourses && slots.ready });
   const presencesQuery = useQuery({ queryKey: ['pres', 'presences-today', structureId, start], queryFn: () => api.getPresences(structureId, start, end), enabled: !!structureId && rights.widgetDayPresences });
 
   const summary = summaryQuery.data ?? {};
@@ -170,6 +172,17 @@ export function Accueil() {
             {t('presences.today.calls', { defaultValue: 'Appels du jour' })}{' '}
             <span className="text-muted" style={{ fontSize: 14 }}>({courses.length})</span>
           </h2>
+          {slots.canChoose && (
+            <div className="form-check form-switch mb-12" data-multiple-slot>
+              <input id="multiple-slot" type="checkbox" role="switch" className="form-check-input" checked={slots.value} disabled={slots.saving} onChange={(e) => slots.setValue(e.target.checked)} />
+              <label htmlFor="multiple-slot" className="form-check-label" title={slots.value
+                ? t('presences.widgets.day.set.multiple.slot.toolip.disable', { defaultValue: "Désactivez cette option pour générer un appel unique pour les cours dépassant 1h. Valable à partir du prochain cours." })
+                : t('presences.widgets.day.set.multiple.slot.toolip.activate', { defaultValue: "Activez cette option pour générer plusieurs appels pour les cours dépassant 1h. Valable à partir du prochain cours si l'appel n'a pas déjà été ouvert." })}>
+                {t('presences.widgets.day.set.multiple.slot', { defaultValue: 'Appels multiples pour mes cours dépassant 1h' })}
+              </label>
+              {slots.error && <span className="text-danger ms-8" role="alert" data-multiple-slot-error>{t('presences.error', { defaultValue: "L'opération a échoué." })}</span>}
+            </div>
+          )}
           {coursesQuery.isLoading && <p>{t('presences.loading', { defaultValue: 'Chargement…' })}</p>}
           {!coursesQuery.isLoading && !coursesQuery.isError && courses.length === 0 && (
             <p className="text-muted">{t('presences.today.calls.empty', { defaultValue: 'Aucun cours aujourd’hui.' })}</p>

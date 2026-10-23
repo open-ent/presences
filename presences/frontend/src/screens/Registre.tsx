@@ -26,6 +26,7 @@ import {
   withTime,
 } from '../register';
 import { heure, todayIso, visibleByLabel } from '../utils';
+import { useMultipleSlot } from '../multipleSlot';
 import { useStructure } from '../structure';
 
 /**
@@ -56,12 +57,14 @@ export function Registre() {
   const [remarkOpen, setRemarkOpen] = useState<Set<string>>(new Set());
   const [actionError, setActionError] = useState(false);
   const [panel, setPanel] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'split'>('list');
   const filterMine = mineOnly ?? isTeacher;
 
+  const slots = useMultipleSlot(structureId);
   const coursesQuery = useQuery({
-    queryKey: ['presences', 'courses', structureId, date, filterMine ? user?.userId : null],
-    queryFn: () => api.getCourses(structureId, date, filterMine ? user?.userId : undefined),
-    enabled: !!structureId && !!date,
+    queryKey: ['presences', 'courses', structureId, date, filterMine ? user?.userId : null, slots.value],
+    queryFn: () => api.getCourses(structureId, date, filterMine ? user?.userId : undefined, slots.value),
+    enabled: !!structureId && !!date && slots.ready,
   });
   const courses = coursesQuery.data ?? [];
   // Arrivée depuis la liste des appels (`?date=…&course=…`) : le cours demandé s'ouvre d'emblée.
@@ -322,8 +325,15 @@ export function Registre() {
                     <li><span className="badge bg-warning text-dark">{t('presences.registre.last.absent.short', { defaultValue: 'Absent au cours précédent' })}</span></li>
                   </ul>
                 </div>
+                {(register.groups ?? []).length > 1 && (
+                  <div className="btn-group mb-8" role="group" aria-label={t('presences.registre.view', { defaultValue: "Mode d'affichage" })} data-view-switch>
+                    <button type="button" className={`btn btn-sm btn-${view === 'list' ? 'primary' : 'outline-secondary'}`} aria-pressed={view === 'list'} onClick={() => setView('list')} data-view="list">{t('presences.registre.view.list', { defaultValue: 'Liste' })}</button>
+                    <button type="button" className={`btn btn-sm btn-${view === 'split' ? 'primary' : 'outline-secondary'}`} aria-pressed={view === 'split'} onClick={() => setView('split')} data-view="split">{t('presences.registre.view.split', { defaultValue: 'Vue scindée' })}</button>
+                  </div>
+                )}
+                <div className={view === 'split' ? 'd-flex gap-16 align-items-start' : ''} data-view-mode={view}>
                 {groupStudents(students, register.groups).map((g) => (
-                <div key={g.name ?? 'all'} data-group={g.name ?? ''}>
+                <div key={g.name ?? 'all'} data-group={g.name ?? ''} style={view === 'split' ? { flex: '1 1 0', minWidth: 0 } : undefined}>
                 {g.name !== null && <h3 style={{ fontSize: 15, fontWeight: 700 }} className="mt-12">{g.name}</h3>}
                 <ul className="list-unstyled mb-12">
                   {g.students.map((s) => {
@@ -445,6 +455,7 @@ export function Registre() {
                 </ul>
                 </div>
                 ))}
+                </div>
                 <button type="button" className="btn btn-primary" disabled={validate.isPending || done} onClick={() => validate.mutate()} data-validate>
                   {done ? t('presences.registre.validated', { defaultValue: 'Appel validé' }) : t('presences.registre.validate', { defaultValue: "Valider l'appel" })}
                 </button>

@@ -158,3 +158,12 @@ export const attenders = (students: RegisterStudent[]): { present: number; total
 /** Un cours ne peut pas être appelé plus de 15 minutes avant son début. */
 export const isFutureCourse = (startDate: string | undefined, now: Date = new Date()): boolean =>
   !startDate || now.getTime() + 15 * 60_000 <= new Date(startDate).getTime();
+
+/**
+ * Valeur du paramètre `multiple_slot` des cours : le personnel reçoit toujours les créneaux découpés ; un enseignant
+ * suit sa préférence (activée par défaut tant qu'il ne l'a pas posée). Le serveur combine ce paramètre avec le réglage
+ * « appels multiples » de l'établissement.
+ */
+export function multipleSlotParam(isStaff: boolean, preference: boolean | undefined): boolean {
+  return isStaff ? true : preference ?? true;
+}

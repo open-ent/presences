@@ -189,12 +189,15 @@ export interface Course {
   register_id?: number | null;
   register_state_id?: number | null;
   allowRegister?: boolean;
+  splitSlot?: boolean;
   teachers?: Array<{ id: string; displayName?: string }>;
 }
 
 /** Cours d'une structure sur une journée (pour l'appel). */
-export const getCourses = async (structureId: string, date: string, teacherId?: string): Promise<Course[]> => {
+export const getCourses = async (structureId: string, date: string, teacherId?: string, multipleSlot?: boolean): Promise<Course[]> => {
   let url = `/presences/courses?structure=${structureId}&start=${date}&end=${date}`;
+  // Appels multiples : préférence de l'utilisateur (le serveur la combine avec le réglage de l'établissement).
+  if (multipleSlot !== undefined) url += `&multiple_slot=${multipleSlot}`;
   // Enseignant : ses cours seulement (le serveur lit `teacher`, comme l'AngularJS).
   if (teacherId) url += `&teacher=${encodeURIComponent(teacherId)}`;
   return json<Course[]>(await fetch(url, base));
@@ -238,7 +241,7 @@ export const createRegister = async (course: Course, structureId: string, teache
         groups: course.groups ?? [],
         classes: course.classes ?? [],
         teacherIds,
-        split_slot: false,
+        split_slot: course.splitSlot ?? false,
       }),
     }),
   );
@@ -911,7 +914,22 @@ export const createForgottenNotebook = async (structureId: string, studentId: st
   if (!res.ok && res.status !== 201) throw new Error(String(res.status));
 };
 
+// ── Préférence « appels multiples » (userbook, clé presences.register) ─────────
+/** Préférence de l'utilisateur : `undefined` tant qu'elle n'a jamais été posée. */
+export const getMultipleSlotPreference = async (): Promise<boolean | undefined> => {
+  const res = await fetch(`/userbook/preference/presences.register`, base);
+  if (!res.ok) return undefined;
+  const d = await res.json().catch(() => null) as { preference?: string } | null;
+  try { const p = JSON.parse(d?.preference ?? 'null') as { multipleSlot?: boolean } | null; return typeof p?.multipleSlot === 'boolean' ? p.multipleSlot : undefined; } catch { return undefined; }
+};
+
+export const setMultipleSlotPreference = async (multipleSlot: boolean): Promise<void> => {
+  const res = await fetch(`/userbook/preference/presences.register`, { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify({ multipleSlot }) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 export const api = {
+  getMultipleSlotPreference, setMultipleSlotPreference,
   createLateness, updateLateness, getStudentNotebookCount, resetStudentNotebookCount, createForgottenNotebook,
   getReasons, getActions, getDisciplines, getSettings,
   createReason, deleteReason,

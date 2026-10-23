@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { api, Course } from '../api';
 import { EVENT, eventOf, REGISTER_STATE, RegisterStudent, sqlDate } from '../register';
 import { currentCourse } from '../currentCourse';
+import { useMultipleSlot } from '../multipleSlot';
 import { jour } from '../utils';
 
 /**
@@ -21,10 +22,11 @@ export function CurrentCourseWidget({ structureId }: { structureId: string }) {
   const [search, setSearch] = useState('');
   const [registerId, setRegisterId] = useState<number | null>(null);
 
+  const slots = useMultipleSlot(structureId);
   const coursesQuery = useQuery({
-    queryKey: ['pres', 'widget-course', structureId, today, user?.userId],
-    queryFn: () => api.getCourses(structureId, today, user?.userId),
-    enabled: !!structureId && !!user?.userId,
+    queryKey: ['pres', 'widget-course', structureId, today, user?.userId, slots.value],
+    queryFn: () => api.getCourses(structureId, today, user?.userId, slots.value),
+    enabled: !!structureId && !!user?.userId && slots.ready,
   });
   const course = currentCourse(coursesQuery.data ?? []);
 
