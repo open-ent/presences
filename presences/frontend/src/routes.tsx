@@ -26,6 +26,7 @@ export const routes: RouteObject[] = [
       { path: 'registre', element: <Guard right="readRegister"><Registre /></Guard> },
       { path: 'appels', element: <Guard right="readRegister"><ListeAppels /></Guard> },
       { path: 'presences-saisies', element: <Guard right="presencesList"><PresencesSaisies /></Guard> },
+      { path: 'calendrier', element: <Guard right="calendar"><CalendrierEleve /></Guard> },
       { path: 'calendrier/:studentId', element: <Guard right="calendar"><CalendrierEleve /></Guard> },
       { path: 'registre-mensuel', element: <Guard right="registry"><RegistreMensuel /></Guard> },
       { path: 'absences', element: <Guard right="absences"><Absences /></Guard> },

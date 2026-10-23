@@ -36,6 +36,7 @@ export function Root() {
               {rights.readRegister && tab('/appels', 'Liste des appels')}
               {rights.presencesList && tab('/presences-saisies', 'Présences')}
               {rights.registry && tab('/registre-mensuel', 'Registre mensuel')}
+              {rights.calendar && tab('/calendrier', 'Saisir un événement')}
               {rights.absences && tab('/absences', 'Saisie des absences')}
               {rights.absences && tab('/absences-prevues', 'Absences prévues')}
               {rights.readEvent && tab('/regularisation', 'Régularisation')}

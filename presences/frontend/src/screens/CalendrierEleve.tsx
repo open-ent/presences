@@ -108,7 +108,18 @@ export function CalendrierEleve() {
   const notebookResetMut = useMutation({ mutationFn: () => api.resetStudentNotebookCount(structureId, studentId), onSuccess: () => qc.invalidateQueries({ queryKey: ['pres', 'cal-notebook'] }) });
   const progress = notebookProgress(notebookQuery.data?.count ?? 0, notebookQuery.data?.threshold ?? 0);
 
-  if (!studentId) return <div className="alert alert-info" role="alert">{t('presences.calendar.choose', { defaultValue: 'Choisissez un élève pour afficher son calendrier.' })}</div>;
+  // Entrée de menu « Saisir un événement » : sans élève, on propose d'abord la recherche.
+  if (!studentId) {
+    return (
+      <div>
+        <h1 className="mb-12">{t('presences.event.calendar.title', { defaultValue: "Calendrier de l'élève" })}</h1>
+        <div style={{ maxWidth: 360 }} className="mb-12" data-choose-student>
+          <StudentSearch id="cal-student" label={t('presences.dashboard.search.placeholder', { defaultValue: 'Rechercher un élève' })} structureId={structureId} selected={[]} hideChips onAdd={(s) => goStudent(s.id)} />
+        </div>
+        <div className="alert alert-info" role="alert">{t('presences.calendar.choose', { defaultValue: 'Choisissez un élève pour afficher son calendrier.' })}</div>
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -188,6 +188,7 @@ export interface Course {
   endDate?: string;
   register_id?: number | null;
   register_state_id?: number | null;
+  allowRegister?: boolean;
   teachers?: Array<{ id: string; displayName?: string }>;
 }
 
@@ -252,6 +253,8 @@ export interface EventBody {
   comment?: string;
   /** Saisi par le personnel de vie scolaire (et non par l'enseignant). */
   counsellorInput?: boolean;
+  /** Motif conservé lors d'une modification (retard) ; aucun à la création. */
+  reasonId?: number | null;
 }
 
 const eventPayload = (b: EventBody) => ({
@@ -262,7 +265,7 @@ const eventPayload = (b: EventBody) => ({
   end_date: b.endDate,
   counsellor_input: b.counsellorInput ?? true,
   counsellor_regularisation: false,
-  reason_id: null,
+  reason_id: b.reasonId ?? null,
   ...(b.comment !== undefined ? { comment: b.comment } : {}),
 });
 
