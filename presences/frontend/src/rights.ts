@@ -14,6 +14,9 @@ export const WORKFLOW = {
   widgetAlerts: 'fr.openent.presences.controller.FakeRight|widgetAlerts',
   widgetForgottenRegisters: 'fr.openent.presences.controller.FakeRight|widgetForgottenRegisters',
   widgetStatements: 'fr.openent.presences.controller.FakeRight|widgetStatements',
+  readPresenceRestricted: 'fr.openent.presences.controller.FakeRight|readPresenceRestricted',
+  createPresence: 'fr.openent.presences.controller.PresencesController|createPresence',
+  updatePresence: 'fr.openent.presences.controller.PresencesController|updatePresence',
   readRegistry: 'fr.openent.presences.controller.RegistryController|getRegistry',
   search: 'fr.openent.presences.controller.SearchController|searchUsers',
   manageForgottenNotebook: 'fr.openent.presences.controller.NotebookController|worflowManageForgottenNotebook',
@@ -44,6 +47,10 @@ export interface Rights {
   widgetStatements: boolean;
   /** Consulter et traiter les déclarations d'absence des parents (droit complet, restreint ou de lecture). */
   statements: boolean;
+  /** Consulter les présences saisies (droit complet ou restreint). */
+  presencesList: boolean;
+  /** Créer et modifier des présences. */
+  managePresencesList: boolean;
   /** Consulter le calendrier d'un élève. */
   calendar: boolean;
   /** Consulter le registre mensuel (droit registre ou droit de recherche). */
@@ -77,6 +84,10 @@ export function useRights(): Rights {
     widgetAlerts: has(WORKFLOW.widgetAlerts),
     widgetForgottenRegisters: has(WORKFLOW.widgetForgottenRegisters),
     widgetStatements: has(WORKFLOW.widgetStatements),
+    readPresences: has(WORKFLOW.readPresences),
+    readPresenceRestricted: has(WORKFLOW.readPresenceRestricted),
+    createPresence: has(WORKFLOW.createPresence),
+    updatePresence: has(WORKFLOW.updatePresence),
     readRegistry: has(WORKFLOW.readRegistry),
     search: has(WORKFLOW.search),
     manageForgottenNotebook: has(WORKFLOW.manageForgottenNotebook),
@@ -108,5 +119,5 @@ export function useRights(): Rights {
   };
   const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, statements, calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
+  return { ready, ...out, statements, presencesList: b(flags.readPresences) || b(flags.readPresenceRestricted), managePresencesList: b(flags.createPresence) || b(flags.updatePresence), calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }

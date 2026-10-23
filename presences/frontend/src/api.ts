@@ -479,6 +479,36 @@ export const deleteAbsence = async (id: number): Promise<void> => {
   if (!res.ok) throw new Error(String(res.status));
 };
 
+// ── Présences saisies (1er degré) : liste, création, modification, suppression ──
+import type { PresenceForm, PresenceRecord } from './presenceList';
+import { presenceBody } from './presenceList';
+
+/** Présences (GET /presences/presences) ; `params` vient de `presenceParams`. */
+export const getPresenceList = async (params: string): Promise<PresenceRecord[]> => json<PresenceRecord[]>(await fetch(`/presences/presences${params}`, base)).then((a) => a ?? []);
+
+/** Enregistre une présence : création (POST) ou modification (PUT /presences/presence). */
+export const savePresence = async (form: PresenceForm): Promise<void> => {
+  const res = await fetch('/presences/presence', { ...base, method: form.id ? 'PUT' : 'POST', headers: mutHeaders(), body: JSON.stringify(presenceBody(form)) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+export const deletePresence = async (id: number): Promise<void> => {
+  const res = await fetch(`/presences/presence?id=${id}`, { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Personnel et enseignants dont le nom correspond (auteurs des présences). */
+export const searchStaff = async (structureId: string, q: string): Promise<Array<{ id: string; displayName: string }>> => {
+  const term = encodeURIComponent(q.trim().toLowerCase());
+  const calls = ['Personnel', 'Teacher'].map(async (profile) => {
+    const res = await fetch(`/presences/search/users?structureId=${structureId}&profile=${profile}&q=${term}&field=firstName&field=lastName`, base);
+    return res.ok ? ((await res.json().catch(() => [])) as Array<{ id: string; displayName?: string; firstName?: string; lastName?: string }>) : [];
+  });
+  const all = (await Promise.all(calls)).flat();
+  const seen = new Set<string>();
+  return all.filter((u) => !seen.has(u.id) && seen.add(u.id)).map((u) => ({ id: u.id, displayName: u.displayName ?? `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() }));
+};
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -834,7 +864,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   searchStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
-  getCalendarCourses, getCalendarAbsences, getCalendarPresences, getCalendarGroupStudents, getStudentClass, updateAbsence, deleteAbsence, getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
+  getPresenceList, savePresence, deletePresence, searchStaff, getCalendarCourses, getCalendarAbsences, getCalendarPresences, getCalendarGroupStudents, getStudentClass, updateAbsence, deleteAbsence, getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
   getPlannedAbsences, getAbsenceMarkers, setAbsenceReason, regularizeAbsences, getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getExemptionsPage, saveExemption, deleteExemption, getSubjects,
