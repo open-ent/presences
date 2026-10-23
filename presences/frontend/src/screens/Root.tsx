@@ -9,6 +9,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 
 import { useRights } from '../rights';
 import { StructureSelect } from '../structure';
+import { UiSwitchFab } from '../components/UiSwitchFab';
 
 /** Gabarit commun : bandeau ENT (Layout + AppHeader + fil d'Ariane) + navigation + contenu. */
 export function Root() {
@@ -51,6 +52,7 @@ export function Root() {
           </div>
         </div>
       </Layout>
+      <UiSwitchFab />
     </div>
   );
 }
