@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api';
 import { QueryErrors } from '../components/QueryErrors';
 import { StudentSearch } from '../components/StudentSearch';
+import { useRights } from '../rights';
 import { useStructure } from '../structure';
 import {
   absencesOf, absencesUrl, addDays, CalCourse, courseBox, courseKey, courseName, coursesOfDay, coursesUrl, courseTone, dayBounds, dayName, eventSummary,
@@ -33,6 +34,7 @@ export function CalendrierEleve() {
   const [params, setParams] = useSearchParams();
   const canManage = useHasWorkflow(MANAGE) === true;
   const canNotebook = useHasWorkflow(NOTEBOOK) === true;
+  const { oneD } = useRights();
 
   const today = isoDay(new Date());
   const monday = mondayOf(params.get('date') ?? today);
@@ -145,7 +147,13 @@ export function CalendrierEleve() {
         {canManage && (
           <span className="ms-auto d-flex gap-8">
             <a className="btn btn-outline-primary btn-sm" data-link-exemption href={exemptionLink(studentId, name, chosen ? chosen.startDate.slice(0, 10) : today)}>{t('presences.exemptions.create', { defaultValue: 'Dispense' })}</a>
-            <a className="btn btn-outline-primary btn-sm" data-link-punish href={`/incidents?ui=react#/punitions?students=${studentId}~${encodeURIComponent(name)}`}>{t('presences.alerts.punish', { defaultValue: 'Punition / sanction' })}</a>
+            {/* Incident et punition : réservés au 2nd degré, comme l'IHM AngularJS ; date et heure du cours choisi, sinon maintenant. */}
+            {!oneD && (
+              <>
+                <a className="btn btn-outline-primary btn-sm" data-link-incident href={`/incidents?ui=react#/?student=${studentId}~${encodeURIComponent(name)}&date=${chosenDay}&time=${chosen ? hhmm(chosen.startDate) : new Date().toTimeString().slice(0, 5)}`}>{t('presences.incident.create', { defaultValue: 'Saisir un incident' })}</a>
+                <a className="btn btn-outline-primary btn-sm" data-link-punish href={`/incidents?ui=react#/punitions?students=${studentId}~${encodeURIComponent(name)}`}>{t('presences.alerts.punish', { defaultValue: 'Punition / sanction' })}</a>
+              </>
+            )}
           </span>
         )}
       </div>

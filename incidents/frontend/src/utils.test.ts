@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { dateFr, heure, ouiNon, protagonistesLabel, schoolYear, todayIso } from './utils';
+import { dateFr, heure, ouiNon, incidentPrefill, protagonistesLabel, schoolYear, todayIso } from './utils';
 
 describe('dateFr', () => {
   it('convertit une date backend en jj/mm/aaaa', () => {
@@ -51,5 +51,19 @@ describe('dates par défaut', () => {
   it('jour courant au format ISO, sans décalage UTC', () => {
     expect(todayIso(new Date(2026, 9, 22, 23, 59))).toBe('2026-10-22');
     expect(todayIso(new Date(2026, 0, 5, 0, 1))).toBe('2026-01-05');
+  });
+});
+
+describe('incidentPrefill', () => {
+  const p = (q: string) => incidentPrefill(new URLSearchParams(q));
+  it('lit élève, date et heure', () => {
+    expect(p('student=e1~DUPONT%20L%C3%A9a&date=2026-10-23&time=08:15')).toEqual({ student: { id: 'e1', name: 'DUPONT Léa' }, date: '2026-10-23', time: '08:15' });
+  });
+  it('accepte un identifiant seul et ignore date/heure invalides', () => {
+    expect(p('student=e1&date=demain&time=8h')).toEqual({ student: { id: 'e1', name: 'e1' }, date: undefined, time: undefined });
+  });
+  it('renvoie null sans élève', () => {
+    expect(p('date=2026-10-23')).toBeNull();
+    expect(p('student=~x')).toBeNull();
   });
 });

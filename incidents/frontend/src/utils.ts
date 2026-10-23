@@ -47,3 +47,23 @@ export function schoolYear(ref: Date = new Date()): { start: string; end: string
   const y = ref.getMonth() >= 8 ? ref.getFullYear() : ref.getFullYear() - 1;
   return { start: `${y}-09-01`, end: `${y + 1}-08-31` };
 }
+
+export interface IncidentPrefill { student: { id: string; name: string }; date?: string; time?: string }
+
+/**
+ * Préremplissage d'un incident depuis un lien (`#/?student=id~nom encodé&date=YYYY-MM-DD&time=HH:mm`), par exemple depuis
+ * le calendrier d'un élève. Un identifiant seul reste utilisable ; date et heure invalides sont ignorées.
+ */
+export function incidentPrefill(params: URLSearchParams): IncidentPrefill | null {
+  const raw = params.get('student');
+  if (!raw) return null;
+  const [id, ...rest] = raw.split('~');
+  if (!id) return null;
+  const date = params.get('date') ?? undefined;
+  const time = params.get('time') ?? undefined;
+  return {
+    student: { id, name: rest.length > 0 ? decodeURIComponent(rest.join('~')) : id },
+    date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
+    time: time && /^\d{2}:\d{2}$/.test(time) ? time : undefined,
+  };
+}

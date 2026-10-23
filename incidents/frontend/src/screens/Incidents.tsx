@@ -1,11 +1,11 @@
 import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api';
-import { dateFr, heure, ouiNon, schoolYear } from '../utils';
+import { dateFr, heure, incidentPrefill, IncidentPrefill, ouiNon, schoolYear } from '../utils';
 import { Pager } from '../components/Pager';
 import { QueryErrors } from '../components/QueryErrors';
 import { StudentSearch } from '../components/StudentSearch';
@@ -31,6 +31,16 @@ export function Incidents() {
   const [end, setEnd] = useState(schoolYear().end);
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  // Arrivée depuis le calendrier d'un élève : formulaire ouvert, élève et date préremplis.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [prefill, setPrefill] = useState<IncidentPrefill | null>(null);
+  useEffect(() => {
+    const p = incidentPrefill(searchParams);
+    if (!p) return;
+    setPrefill(p);
+    setCreating(true);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [page, setPage] = useState(0);
 
   const incidentsQuery = useQuery({
@@ -84,11 +94,12 @@ export function Incidents() {
         <IncidentForm
           structureId={structureId}
           ownerId={ownerId}
+          prefill={prefill}
           onDone={() => {
             setCreating(false);
             invalidate();
           }}
-          onCancel={() => setCreating(false)}
+          onCancel={() => { setCreating(false); setPrefill(null); }}
         />
       )}
 
@@ -197,11 +208,11 @@ export function Incidents() {
 }
 
 /** Formulaire de saisie d'incident (parité Angular « Saisir un incident »). */
-function IncidentForm({ structureId, ownerId, onDone, onCancel }: { structureId: string; ownerId: string; onDone: () => void; onCancel: () => void }) {
+function IncidentForm({ structureId, ownerId, prefill, onDone, onCancel }: { structureId: string; ownerId: string; prefill?: IncidentPrefill | null; onDone: () => void; onCancel: () => void }) {
   const { t } = useTranslation(['incidents', 'common']);
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [time, setTime] = useState('08:00');
+  const [date, setDate] = useState(() => prefill?.date ?? new Date().toISOString().slice(0, 10));
+  const [time, setTime] = useState(() => prefill?.time ?? '08:00');
   const [typeId, setTypeId] = useState('');
   const [placeId, setPlaceId] = useState('');
   const [partnerId, setPartnerId] = useState('');
@@ -238,6 +249,13 @@ function IncidentForm({ structureId, ownerId, onDone, onCancel }: { structureId:
     e.preventDefault();
     if (valid) createMut.mutate();
   };
+
+  // Élève du lien : ajouté dès que les types de protagoniste sont connus.
+  useEffect(() => {
+    const tId = Number(protaTypes[0]?.id || 0);
+    if (!prefill || !tId) return;
+    setStudents((prev) => (prev.some((x) => x.user_id === prefill.student.id) ? prev : [...prev, { user_id: prefill.student.id, type_id: tId, name: prefill.student.name }]));
+  }, [prefill, protaTypes.length]);
 
   const addStudent = (s: { id: string; name: string }) => {
     const tId = Number(protagonistTypeId || protaTypes[0]?.id || 0);
