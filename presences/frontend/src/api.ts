@@ -12,6 +12,8 @@ export interface Reason {
   proving?: boolean;
   default?: boolean;
   hidden?: boolean;
+  /** 1 absence, 2 retard. */
+  reason_type_id?: number;
 }
 
 /** Action/mesure paramétrée (ex. « Appel reçu »). */
@@ -369,6 +371,49 @@ export const regularizeAbsences = async (ids: number[], regularized: boolean): P
   if (!res.ok) throw new Error(String(res.status));
 };
 
+// ── Absences collectives ─────────────────────────────────────────────────────────
+import type { CollectiveAbsence } from './collectiveAbsences';
+
+export interface CollectivesPage { page: number; page_count: number; all: CollectiveAbsence[] }
+
+/** Absences collectives (GET .../absences/collectives) ; `params` vient de `collectiveListParams`. */
+export const getCollectives = async (structureId: string, params: string): Promise<CollectivesPage> => {
+  const d = await json<Partial<CollectivesPage> | null>(await fetch(`/presences/structures/${structureId}/absences/collectives${params}`, base));
+  return { page: d?.page ?? 0, page_count: d?.page_count ?? 1, all: d?.all ?? [] };
+};
+
+export const getCollective = async (structureId: string, id: number): Promise<CollectiveAbsence> =>
+  json<CollectiveAbsence>(await fetch(`/presences/structures/${structureId}/absences/collectives/${id}`, base));
+
+const send = async (url: string, method: 'POST' | 'PUT' | 'DELETE', body?: unknown): Promise<void> => {
+  const res = await fetch(url, { ...base, method, headers: mutHeaders(), ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+export const createCollective = (structureId: string, body: unknown) => send(`/presences/structures/${structureId}/absences/collectives`, 'POST', body);
+export const updateCollective = (structureId: string, id: number, body: unknown) => send(`/presences/structures/${structureId}/absences/collectives/${id}`, 'PUT', body);
+export const deleteCollective = (structureId: string, id: number) => send(`/presences/structures/${structureId}/absences/collectives/${id}`, 'DELETE');
+/** Retire des élèves d'une absence collective déjà enregistrée. */
+export const removeFromCollective = (structureId: string, id: number, studentIds: string[]) => send(`/presences/structures/${structureId}/absences/collectives/${id}/students`, 'PUT', { studentIds });
+
+/** Quels élèves sont déjà absents (ou modifiés individuellement) sur la période. */
+export const getCollectiveStatuses = async (structureId: string, body: { startDate: string; endDate: string; studentIds: string[]; collectiveId: number | null }): Promise<Array<{ studentId: string; isAbsent?: boolean; isUpdated?: boolean }>> => {
+  const res = await fetch(`/presences/structures/${structureId}/absences/isAbsent`, { ...base, method: 'POST', headers: mutHeaders(), body: JSON.stringify(body) });
+  const d = await json<{ all?: Array<{ studentId: string; isAbsent?: boolean; isUpdated?: boolean }> } | null>(res);
+  return d?.all ?? [];
+};
+
+/** Résultat de la recherche globale : un élève ou une classe (avec la classe de l'élève). */
+export interface GlobalHit { id: string; displayName: string; type: 'USER' | 'GROUP'; groupId?: string; groupName?: string; firstName?: string; lastName?: string }
+
+/** Recherche d'élèves et de classes (GET /presences/search), comme la recherche globale de l'AngularJS. */
+export const searchGlobal = async (structureId: string, q: string): Promise<GlobalHit[]> =>
+  json<GlobalHit[]>(await fetch(`/presences/search?structureId=${structureId}&q=${encodeURIComponent(q.toLowerCase())}`, base)).then((a) => a ?? []);
+
+/** Élèves d'une classe ou d'un groupe (GET /presences/users?groupId=&type=GROUP). */
+export const getGroupMembers = async (groupId: string): Promise<Array<{ id: string; firstName?: string; lastName?: string }>> =>
+  json<Array<{ id: string; firstName?: string; lastName?: string }>>(await fetch(`/presences/users?groupId=${groupId}&type=GROUP`, base)).then((a) => a ?? []);
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -724,6 +769,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   searchStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
+  getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
   getPlannedAbsences, getAbsenceMarkers, setAbsenceReason, regularizeAbsences, getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getSubjects,

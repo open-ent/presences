@@ -35,6 +35,7 @@ export function Root() {
               {rights.absences && tab('/absences', 'Saisie des absences')}
               {rights.absences && tab('/absences-prevues', 'Absences prévues')}
               {rights.readEvent && tab('/regularisation', 'Régularisation')}
+              {rights.collectiveAbsences && tab('/absences-collectives', 'Absences collectives')}
               {rights.widgetAlerts && tab('/alertes', 'Alertes')}
               {rights.statements && tab('/declarations', "Déclarations d'absence")}
               {rights.readExemption && tab('/dispenses', 'Dispenses')}

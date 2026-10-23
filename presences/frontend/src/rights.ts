@@ -14,6 +14,7 @@ export const WORKFLOW = {
   widgetAlerts: 'fr.openent.presences.controller.FakeRight|widgetAlerts',
   widgetForgottenRegisters: 'fr.openent.presences.controller.FakeRight|widgetForgottenRegisters',
   widgetStatements: 'fr.openent.presences.controller.FakeRight|widgetStatements',
+  manageCollectiveAbsences: 'fr.openent.presences.controller.CollectiveAbsenceController|manageCollectiveAbsences',
   manageStatements: 'fr.openent.presences.controller.StatementAbsenceController|validate',
   manageStatementsRestricted: 'fr.openent.presences.controller.FakeRight|manageAbsenceStatementsRestricted',
   viewStatements: 'fr.openent.presences.controller.FakeRight|AbsenceStatementsView',
@@ -39,6 +40,8 @@ export interface Rights {
   widgetStatements: boolean;
   /** Consulter et traiter les déclarations d'absence des parents (droit complet, restreint ou de lecture). */
   statements: boolean;
+  /** Gérer les absences collectives. */
+  collectiveAbsences: boolean;
   /** Déposer une déclaration d'absence (responsable légal). */
   createStatement: boolean;
   widgetDayCourses: boolean;
@@ -62,6 +65,7 @@ export function useRights(): Rights {
     widgetAlerts: has(WORKFLOW.widgetAlerts),
     widgetForgottenRegisters: has(WORKFLOW.widgetForgottenRegisters),
     widgetStatements: has(WORKFLOW.widgetStatements),
+    manageCollectiveAbsences: has(WORKFLOW.manageCollectiveAbsences),
     manageStatements: has(WORKFLOW.manageStatements),
     manageStatementsRestricted: has(WORKFLOW.manageStatementsRestricted),
     viewStatements: has(WORKFLOW.viewStatements),
@@ -88,5 +92,5 @@ export function useRights(): Rights {
   };
   const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, statements, createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
+  return { ready, ...out, statements, collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }
