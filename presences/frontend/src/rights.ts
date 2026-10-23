@@ -44,6 +44,8 @@ export interface Rights {
   widgetStatements: boolean;
   /** Consulter et traiter les déclarations d'absence des parents (droit complet, restreint ou de lecture). */
   statements: boolean;
+  /** Consulter le calendrier d'un élève. */
+  calendar: boolean;
   /** Consulter le registre mensuel (droit registre ou droit de recherche). */
   registry: boolean;
   /** Gérer les carnets oubliés. */
@@ -106,5 +108,5 @@ export function useRights(): Rights {
   };
   const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, statements, registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
+  return { ready, ...out, statements, calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }

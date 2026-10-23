@@ -445,6 +445,40 @@ export const deleteExemption = async (e: RawExemption): Promise<void> => {
   if (!res.ok) throw new Error(String(res.status));
 };
 
+// ── Calendrier d'un élève ────────────────────────────────────────────────────────
+import type { CalAbsence, CalCourse } from './studentCalendar';
+
+export const getCalendarCourses = async (url: string): Promise<CalCourse[]> => json<CalCourse[]>(await fetch(url, base)).then((a) => a ?? []);
+export const getCalendarAbsences = async (url: string): Promise<CalAbsence[]> => json<CalAbsence[]>(await fetch(url, base)).then((a) => a ?? []);
+
+export interface CalPresence { id?: number; startDate?: string; endDate?: string; start_date?: string; end_date?: string; owner?: { displayName?: string } | string }
+export const getCalendarPresences = async (url: string): Promise<CalPresence[]> => json<CalPresence[]>(await fetch(url, base)).then((a) => a ?? []);
+
+/** Élèves de la classe de l'élève (navigation d'un élève à l'autre). */
+export const getCalendarGroupStudents = async (groupId: string): Promise<Array<{ id: string; displayName: string }>> =>
+  json<Array<{ id: string; displayName?: string; firstName?: string; lastName?: string }>>(await fetch(`/presences/calendar/groups/${groupId}/students`, base))
+    .then((a) => (a ?? []).map((u) => ({ id: u.id, displayName: u.displayName ?? `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() })));
+
+/** Classe d'un élève (identifiant et nom) d'après le référentiel vie scolaire. */
+export const getStudentClass = async (structureId: string, studentId: string): Promise<{ id: string; name?: string } | null> => {
+  const res = await fetch(`/viescolaire/eleves?idUser=${studentId}&idStructure=${structureId}`, base);
+  if (!res.ok) return null;
+  const a = (await res.json().catch(() => [])) as Array<{ idClasse?: string; classeName?: string }>;
+  return a?.[0]?.idClasse ? { id: a[0].idClasse, name: a[0].classeName } : null;
+};
+
+/** Modifie le motif d'une absence saisie (PUT /presences/absence/:id). */
+export const updateAbsence = async (id: number, body: { structureId: string; owner: string; studentId: string; startDate: string; endDate: string; reasonId: number | null }): Promise<void> => {
+  const res = await fetch(`/presences/absence/${id}`, { ...base, method: 'PUT', headers: mutHeaders(), body: JSON.stringify({ structure_id: body.structureId, owner: body.owner, student_id: body.studentId, start_date: body.startDate, end_date: body.endDate, reason_id: body.reasonId }) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
+/** Supprime une absence saisie (DELETE /presences/absence/:id). */
+export const deleteAbsence = async (id: number): Promise<void> => {
+  const res = await fetch(`/presences/absence/${id}`, { ...base, method: 'DELETE', headers: mutHeaders() });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Un appel oublié (registre non fait du jour) : cours + classe + horaire + enseignant. */
 export interface ForgottenRegister {
   id?: number | string;
@@ -800,7 +834,7 @@ export const api = {
   createDiscipline, deleteDiscipline,
   searchStudents, getStudentAbsences, createAbsence,
   getCourses, getClasses, getClassStudents, createRegister, createEvent, updateEvent, deleteEvent, getRegister, setRegisterStatus,
-  getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
+  getCalendarCourses, getCalendarAbsences, getCalendarPresences, getCalendarGroupStudents, getStudentClass, updateAbsence, deleteAbsence, getRegistry, getCollectives, getCollective, createCollective, updateCollective, deleteCollective, removeFromCollective, getCollectiveStatuses, searchGlobal, getGroupMembers,
   getPlannedAbsences, getAbsenceMarkers, setAbsenceReason, regularizeAbsences, getAlertSummary, searchAudiences, getAlerts, resetAlerts, getForgottenRegisters, getStatements,
   getStatementsPage, validateStatement, createStatement, getEvents, getEventsPage, getEventsFiltered, getTimeSlots, getEventActions, createEventAction, changeEventsReason, regularizeEvents,
   getExemptions, createExemption, getExemptionsPage, saveExemption, deleteExemption, getSubjects,

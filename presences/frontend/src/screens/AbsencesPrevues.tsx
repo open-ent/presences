@@ -10,6 +10,7 @@ import { PickedStudent, StudentSearch } from '../components/StudentSearch';
 import {
   absenceDates, exportUrl, initialPlannedFilters, listUrl, ownerName, PlannedAbsence, PlannedFilters, regularizeState,
 } from '../plannedAbsences';
+import { calendarLink } from '../studentCalendar';
 import { useStructure } from '../structure';
 import { jour, visibleByLabel } from '../utils';
 
@@ -190,6 +191,7 @@ export function AbsencesPrevues() {
                 <th>{t('presences.absence.reason', { defaultValue: 'Motif' })}</th>
                 <th>{t('presences.created.by.caps', { defaultValue: 'Créée par' })}</th>
                 <th className="text-center">{t('presences.planned.absence.regularized.abbr', { defaultValue: 'Régul.' })}</th>
+                <th className="text-center">{t('presences.calendar.view.abbr', { defaultValue: 'Calendrier' })}</th>
               </tr>
             </thead>
             <tbody>
@@ -217,6 +219,7 @@ export function AbsencesPrevues() {
                           onChange={() => regularizeMut.mutate({ id: a.id, value: !a.counsellor_regularisation })} />
                       ) : '—'}
                     </td>
+                    <td className="text-center">{a.student?.id ? <a href={calendarLink(a.student.id, a.start_date)} data-calendar-link={a.id}>{t('presences.calendar.view.abbr', { defaultValue: 'Voir' })}</a> : '—'}</td>
                   </tr>
                 );
               })}

@@ -6,6 +6,7 @@ import { Alertes } from './screens/Alertes';
 import { Absences } from './screens/Absences';
 import { Dashboard } from './screens/Dashboard';
 import { Declarations } from './screens/Declarations';
+import { CalendrierEleve } from './screens/CalendrierEleve';
 import { Dispenses } from './screens/Dispenses';
 import { Regularisation } from './screens/Regularisation';
 import { RegistreMensuel } from './screens/RegistreMensuel';
@@ -21,6 +22,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Home /> },
       { path: 'registre', element: <Guard right="readRegister"><Registre /></Guard> },
+      { path: 'calendrier/:studentId', element: <Guard right="calendar"><CalendrierEleve /></Guard> },
       { path: 'registre-mensuel', element: <Guard right="registry"><RegistreMensuel /></Guard> },
       { path: 'absences', element: <Guard right="absences"><Absences /></Guard> },
       { path: 'regularisation', element: <Guard right="readEvent"><Regularisation /></Guard> },

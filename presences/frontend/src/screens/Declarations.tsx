@@ -8,6 +8,7 @@ import { Pager } from '../components/Pager';
 import { PickedStudent, StudentSearch } from '../components/StudentSearch';
 import { QueryErrors } from '../components/QueryErrors';
 import { attachmentUrl, isTreated, statementParams } from '../statements';
+import { calendarLink } from '../studentCalendar';
 import { useStructure } from '../structure';
 import { dateFr, heure, schoolYear, todayIso } from '../utils';
 
@@ -98,6 +99,7 @@ export function Declarations() {
                 <th>{t('presences.statements.reason', { defaultValue: 'Motif déclaré' })}</th>
                 <th>{t('presences.statements.attachment', { defaultValue: 'Justificatif' })}</th>
                 <th className="text-center">{t('presences.statements.treated', { defaultValue: 'Traitée' })}</th>
+                <th className="text-center">{t('presences.calendar.view.abbr', { defaultValue: 'Calendrier' })}</th>
               </tr>
             </thead>
             <tbody>
@@ -120,6 +122,7 @@ export function Declarations() {
                       onChange={() => treatMut.mutate({ id: s.id, treated: !isTreated(s) })}
                     />
                   </td>
+                  <td className="text-center">{s.student?.id ? <a href={calendarLink(s.student.id, s.start_at)} data-calendar-link={s.id}>{t('presences.calendar.view.abbr', { defaultValue: 'Voir' })}</a> : '—'}</td>
                 </tr>
               ))}
             </tbody>
