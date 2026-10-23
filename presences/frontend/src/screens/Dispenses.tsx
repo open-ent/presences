@@ -86,7 +86,8 @@ export function Dispenses() {
   }, [linkedStudent, structureId, canManage, subjects.length]);
 
   const patch = (p: Partial<ExemptionForm>) => setForm((f) => (f ? { ...f, ...p } : f));
-  const openCreate = () => { setForm(emptyExemptionForm(structureId, jour(new Date()), defaultSubject(subjects))); setSubmitted(false); setMessage(''); };
+  // Les élèves du filtre sont repris dans le formulaire de création (ils restent modifiables).
+  const openCreate = () => { setForm({ ...emptyExemptionForm(structureId, jour(new Date()), defaultSubject(subjects)), students: students.map((s) => ({ id: s.id, name: s.name })) }); setSubmitted(false); setMessage(''); };
   const openEdit = (e: RawExemption) => { if (canManage) { setForm(formFromExemption(e, structureId, slots)); setSubmitted(false); setMessage(''); } };
   const err = form ? exemptionError(form) : null;
   const onSubmit = (e: FormEvent) => { e.preventDefault(); setSubmitted(true); if (!err) saveMut.mutate(); };
