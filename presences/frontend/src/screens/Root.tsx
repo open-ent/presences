@@ -17,7 +17,7 @@ export function Root() {
   if (!init) return <LoadingScreen />;
 
   const tab = (to: string, label: string, end?: boolean) => (
-    <NavLink to={to} end={end} className={({ isActive }) => `btn btn-${isActive ? 'primary' : 'secondary'}`}>{label}</NavLink>
+    <NavLink to={to} end={end} className={({ isActive }) => `btn btn-${isActive ? 'primary' : 'secondary'} text-start${isActive ? ' active' : ''}`}>{label}</NavLink>
   );
 
   return (
@@ -27,9 +27,10 @@ export function Root() {
           <AppHeader>{currentApp && <Breadcrumb app={currentApp} />}</AppHeader>
         </div>
         <div className="flex-grow-1 overflow-auto">
-          <div className="container py-16">
+          <div className="py-16 pe-24">
             <StructureSelect />
-            {!(user?.type === 'ELEVE' || user?.type === 'PERSRELELEVE') && <nav className="btn-group mb-16" aria-label="Navigation présences">
+            <div className="pres-shell">
+            {!(user?.type === 'ELEVE' || user?.type === 'PERSRELELEVE') && <nav className="pres-side" aria-label="Navigation présences" data-side-nav>
               {tab('/', 'Tableau de bord', true)}
               {rights.readRegister && tab('/registre', "Registre d'appel")}
               {rights.readRegister && tab('/appels', 'Liste des appels')}
@@ -44,7 +45,8 @@ export function Root() {
               {rights.readExemption && tab('/dispenses', 'Dispenses')}
               {rights.absences && tab('/parametrage', 'Paramétrage')}
             </nav>}
-            <Outlet />
+            <main className="pres-main"><Outlet /></main>
+            </div>
           </div>
         </div>
       </Layout>

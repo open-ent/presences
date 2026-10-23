@@ -7,3 +7,14 @@
 .btn-link:focus {
   color: var(--bs-link-hover-color, #0a58ca);
 }
+
+/* Navigation du module : barre latérale à gauche (13 entrées ne tiennent pas en largeur), au-dessus du contenu sur petit écran. */
+.pres-shell { display: flex; gap: 24px; align-items: flex-start; }
+.pres-side { flex: 0 0 220px; display: flex; flex-direction: column; gap: 4px; }
+.pres-main { flex: 1 1 0; min-width: 0; }
+@media (max-width: 768px) {
+  .pres-shell { flex-direction: column; }
+  .pres-side { flex-basis: auto; width: 100%; flex-direction: row; flex-wrap: wrap; }
+}
+/* Le thème colore .btn-primary et .btn-secondary à l'identique : l'entrée active est marquée par un liseré et le gras. */
+.pres-side a.active { font-weight: 700; box-shadow: inset 6px 0 0 #14532d; }

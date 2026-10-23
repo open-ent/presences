@@ -16,6 +16,19 @@ export interface RegisterEvent {
   counsellor_input?: boolean;
 }
 
+export interface HistorySlot {
+  name?: string;
+  start: string;
+  end: string;
+  events: Array<{ id?: number; type_id: number }>;
+}
+
+export interface StudentExemption {
+  subject_id?: string | null;
+  recursive_id?: number | null;
+  attendance?: boolean;
+}
+
 export interface RegisterStudent {
   id: string;
   name: string;
@@ -23,11 +36,18 @@ export interface RegisterStudent {
   events?: RegisterEvent[];
   last_course_absent?: boolean;
   exempted?: boolean;
+  exemptions?: StudentExemption[];
+  forgotten_notebook?: boolean;
+  day_history?: HistorySlot[];
 }
 
 export interface RegisterDetail {
   id: number;
   state_id?: number;
+  subject_id?: string;
+  groups?: string[];
+  teachers?: Array<{ id: string; displayName?: string }>;
+  notified?: boolean;
   start_date: string;
   end_date: string;
   students?: RegisterStudent[];
@@ -88,3 +108,53 @@ export function stateKey(stateId: number | null | undefined): 'done' | 'inProgre
   if (stateId === REGISTER_STATE.IN_PROGRESS) return 'inProgress';
   return 'todo';
 }
+
+/**
+ * Classe de couleur d'un créneau de l'historique du jour : l'événement le plus grave l'emporte
+ * (absence, puis retard, départ, remarque) ; vide sans événement.
+ */
+export function historyClass(events: Array<{ type_id: number }>): '' | 'absence' | 'lateness' | 'departure' | 'remark' {
+  const order = [EVENT.ABSENCE, EVENT.LATENESS, EVENT.DEPARTURE, EVENT.REMARK];
+  const names = ['absence', 'lateness', 'departure', 'remark'] as const;
+  const best = Math.min(...events.map((e) => order.indexOf(e.type_id as 1 | 2 | 3 | 4)).filter((i) => i >= 0), 4);
+  return names[best] ?? '';
+}
+
+/**
+ * Un créneau de l'historique est « courant » s'il recouvre la durée du registre.
+ * (La condition AngularJS d'origine est presque toujours vraie ; on retient le recouvrement strict.)
+ */
+export function isCurrentSlot(slot: { start: string; end: string }, registerStart: string, registerEnd: string): boolean {
+  return sqlDate(slot.start) < sqlDate(registerEnd) && sqlDate(slot.end) > sqlDate(registerStart);
+}
+
+/** Élèves regroupés par nom de groupe, triés par nom ; un seul bloc sans titre si le registre n'a pas plusieurs groupes. */
+export function groupStudents(students: RegisterStudent[], groups: string[] | undefined): Array<{ name: string | null; students: RegisterStudent[] }> {
+  const sort = (list: RegisterStudent[]) => [...list].sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+  if ((groups ?? []).length <= 1) return [{ name: null, students: sort(students) }];
+  const map = new Map<string, RegisterStudent[]>();
+  students.forEach((s) => map.set(s.group_name ?? '', [...(map.get(s.group_name ?? '') ?? []), s]));
+  return [...map.entries()].map(([name, list]) => ({ name, students: sort(list) }));
+}
+
+/** Absence non modifiable : l'élève est dispensé (sans présence obligatoire) pour la matière du cours ou en dispense récurrente. */
+export function absenceBlocked(student: RegisterStudent, subjectId: string | undefined, canManage: boolean): boolean {
+  const absence = eventOf(student, EVENT.ABSENCE);
+  if (absence?.counsellor_input) return !canManage;
+  return exemptionBlocks(student, subjectId);
+}
+
+export function exemptionBlocks(student: RegisterStudent, subjectId: string | undefined): boolean {
+  const hit = (student.exemptions ?? []).find((e) => (e.subject_id === subjectId || (e.recursive_id !== null && e.recursive_id !== undefined)) && !e.attendance);
+  return !!hit && !!student.exempted;
+}
+
+/** Nombre d'élèves présents sur le total (absents déduits). */
+export const attenders = (students: RegisterStudent[]): { present: number; total: number } => ({
+  present: students.length - students.filter((s) => !!eventOf(s, EVENT.ABSENCE)).length,
+  total: students.length,
+});
+
+/** Un cours ne peut pas être appelé plus de 15 minutes avant son début. */
+export const isFutureCourse = (startDate: string | undefined, now: Date = new Date()): boolean =>
+  !startDate || now.getTime() + 15 * 60_000 <= new Date(startDate).getTime();

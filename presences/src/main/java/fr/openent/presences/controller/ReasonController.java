@@ -30,7 +30,7 @@ public class ReasonController extends ControllerHelper {
 
     @Get("/reasons")
     @ApiDoc("Get reasons")
-    @ResourceFilter(AbsenceRight.class)
+    @ResourceFilter(ReasonReadRight.class)
     @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void get(final HttpServerRequest request) {
         String structureId = request.getParam(Field.STRUCTUREID);
