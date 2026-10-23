@@ -8,6 +8,12 @@
   color: var(--bs-link-hover-color, #0a58ca);
 }
 
+/* Listes de résultats des recherches (élève, classe, groupe) : fond et texte explicites, jamais blanc sur blanc. */
+[data-results] { background: #fff; color: #243242; max-height: 240px; overflow-y: auto; }
+[data-results] .btn-link { color: #243242; text-align: left; width: 100%; }
+[data-results] .btn-link:hover,
+[data-results] .btn-link:focus { background: #eef3f8; color: #0a58ca; }
+
 /* Navigation du module : barre latérale à gauche (13 entrées ne tiennent pas en largeur), au-dessus du contenu sur petit écran. */
 .pres-shell { display: flex; gap: 24px; align-items: flex-start; }
 .pres-side { flex: 0 0 220px; display: flex; flex-direction: column; gap: 4px; }

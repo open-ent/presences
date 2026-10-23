@@ -1,5 +1,6 @@
 package fr.openent.presences.controller;
 
+import fr.openent.presences.common.helper.UiPreferenceHelper;
 import fr.openent.presences.Presences;
 import fr.openent.presences.common.helper.*;
 import fr.openent.presences.common.service.*;
@@ -59,13 +60,20 @@ public class PresencesController extends ControllerHelper {
         // Court-circuit propre : la vue React ne dépend pas de l'activation de structure ci-dessous
         // (déjà réalisée à l'init de la suite ; l'accès Angular la déclenche de toute façon).
         final String uiParam = request.params().get("ui");
-        final String frontendUi = "react".equals(config.getString("frontend-ui", "angular")) ? "react" : "angular";
-        final String ui = ("react".equals(uiParam) || "angular".equals(uiParam)) ? uiParam : frontendUi;
-        if ("react".equals(ui)) {
-            renderView(request, new JsonObject(), "presences-react.html", null);
-            eventStore.createAndStoreEvent("ACCESS", request);
-            return;
-        }
+        // Choix de l'interface : dérogation `?ui=`, sinon préférence du compte (`presencesUi`), sinon plateforme.
+        UserUtils.getUserInfos(eb, request, userForUi -> UiPreferenceHelper
+                .preferredUi(userForUi == null ? null : userForUi.getUserId(), "presencesUi", uiParam, config)
+                .onSuccess(ui -> {
+            if ("react".equals(ui)) {
+                renderView(request, new JsonObject(), "presences-react.html", null);
+                eventStore.createAndStoreEvent("ACCESS", request);
+                return;
+            }
+            renderAngular(request);
+        }));
+    }
+
+    private void renderAngular(HttpServerRequest request) {
         UserUtils.getUserInfos(eb, request, user -> {
             JsonObject action = new JsonObject()
                     .put(Field.ACTION, "user.getActivesStructure")

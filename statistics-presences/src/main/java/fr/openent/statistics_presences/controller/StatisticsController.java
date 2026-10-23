@@ -1,5 +1,6 @@
 package fr.openent.statistics_presences.controller;
 
+import fr.openent.presences.common.helper.UiPreferenceHelper;
 import fr.openent.presences.core.constants.Field;
 import fr.openent.presences.core.constants.UserType;
 import fr.openent.statistics_presences.StatisticsPresences;
@@ -57,13 +58,20 @@ public class StatisticsController extends ControllerHelper {
         // CCTP 51C — bascule AngularJS/React. Défaut piloté par la conf `frontend-ui`
         // (fallback "angular"), surchargée à la demande par `?ui=react|angular`.
         final String uiParam = request.params().get("ui");
-        final String frontendUi = "react".equals(config.getString("frontend-ui", "angular")) ? "react" : "angular";
-        final String ui = ("react".equals(uiParam) || "angular".equals(uiParam)) ? uiParam : frontendUi;
-        if ("react".equals(ui)) {
-            renderView(request, new JsonObject(), "statistics-presences-react.html", null);
-            eventHelper.onAccess(request);
-            return;
-        }
+        // Choix de l'interface : dérogation `?ui=`, sinon préférence du compte (`statisticspresencesUi`), sinon plateforme.
+        UserUtils.getUserInfos(eb, request, userForUi -> UiPreferenceHelper
+                .preferredUi(userForUi == null ? null : userForUi.getUserId(), "statisticspresencesUi", uiParam, config)
+                .onSuccess(ui -> {
+            if ("react".equals(ui)) {
+                renderView(request, new JsonObject(), "statistics-presences-react.html", null);
+                eventHelper.onAccess(request);
+                return;
+            }
+            renderAngular(request);
+        }));
+    }
+
+    private void renderAngular(HttpServerRequest request) {
         UserUtils.getUserInfos(eb, request, user -> {
             JsonObject action = new JsonObject()
                     .put("action", "user.getActivesStructure")

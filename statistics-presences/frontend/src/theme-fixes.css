@@ -1,0 +1,15 @@
+/* Correctif thème (51C) : le thème force .btn en blanc, rendant les .btn-link illisibles
+   sur fond clair (texte blanc sur blanc). Restaure la couleur de lien standard. */
+.btn-link {
+  color: var(--bs-link-color, #0d6efd);
+}
+.btn-link:hover,
+.btn-link:focus {
+  color: var(--bs-link-hover-color, #0a58ca);
+}
+
+/* Listes de résultats des recherches (élève, classe, groupe) : fond et texte explicites, jamais blanc sur blanc. */
+[data-results] { background: #fff; color: #243242; max-height: 240px; overflow-y: auto; }
+[data-results] .btn-link { color: #243242; text-align: left; width: 100%; }
+[data-results] .btn-link:hover,
+[data-results] .btn-link:focus { background: #eef3f8; color: #0a58ca; }
