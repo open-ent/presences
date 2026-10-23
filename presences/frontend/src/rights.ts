@@ -53,6 +53,8 @@ export interface Rights {
   presencesList: boolean;
   /** Créer et modifier des présences. */
   managePresencesList: boolean;
+  /** Widget des absences du tableau de bord. */
+  widgetAbsences: boolean;
   /** Relancer l'enseignant d'un appel oublié. */
   notifyTeacher: boolean;
   /** Exporter la liste des appels. */
@@ -127,5 +129,5 @@ export function useRights(): Rights {
   };
   const statements = b(flags.manageStatements) || b(flags.manageStatementsRestricted) || b(flags.viewStatements);
   const absences = b(flags.widgetAbsences) || b(flags.viewCalendar) || b(flags.managePresences);
-  return { ready, ...out, statements, notifyTeacher: b(flags.notifyTeacher), exportCourses: b(flags.exportCourses), presencesList: b(flags.readPresences) || b(flags.readPresenceRestricted), managePresencesList: b(flags.createPresence) || b(flags.updatePresence), calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
+  return { ready, ...out, widgetAbsences: b(flags.widgetAbsences), statements, notifyTeacher: b(flags.notifyTeacher), exportCourses: b(flags.exportCourses), presencesList: b(flags.readPresences) || b(flags.readPresenceRestricted), managePresencesList: b(flags.createPresence) || b(flags.updatePresence), calendar: b(flags.viewCalendar), registry: b(flags.readRegistry) || b(flags.search), forgottenNotebook: b(flags.manageForgottenNotebook), oneD: b(flags.presences1D), collectiveAbsences: b(flags.manageCollectiveAbsences), createStatement: b(flags.createStatement), absences, staff: absences || statements || Object.values(out).some(Boolean) };
 }
