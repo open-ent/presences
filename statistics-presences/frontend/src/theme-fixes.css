@@ -13,3 +13,15 @@
 [data-results] .btn-link { color: #243242; text-align: left; width: 100%; }
 [data-results] .btn-link:hover,
 [data-results] .btn-link:focus { background: #eef3f8; color: #0a58ca; }
+
+/* Entrée sélectionnée (navigation latérale, barre de navigation, onglets) : bleu de l'ancienne interface.
+   Le thème colore .btn-primary et .btn-secondary presque à l'identique : sans cela la sélection ne ressort pas.
+   #1f7fa5 (plutôt que #2a9cc8 de l'ancienne interface) garde un contraste de 4,5:1 avec le texte blanc. */
+nav[aria-label] > .btn.btn-primary,
+nav[aria-label] > a.btn.active,
+[role="tab"][aria-selected="true"] {
+  background-color: #1f7fa5;
+  border-color: #1f7fa5;
+  color: #fff;
+  font-weight: 700;
+}

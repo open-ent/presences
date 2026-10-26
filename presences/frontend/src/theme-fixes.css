@@ -22,5 +22,15 @@
   .pres-shell { flex-direction: column; }
   .pres-side { flex-basis: auto; width: 100%; flex-direction: row; flex-wrap: wrap; }
 }
-/* Le thème colore .btn-primary et .btn-secondary à l'identique : l'entrée active est marquée par un liseré et le gras. */
-.pres-side a.active { font-weight: 700; box-shadow: inset 6px 0 0 #14532d; }
+
+/* Entrée sélectionnée (navigation latérale, barre de navigation, onglets) : bleu de l'ancienne interface.
+   Le thème colore .btn-primary et .btn-secondary presque à l'identique : sans cela la sélection ne ressort pas.
+   #1f7fa5 (plutôt que #2a9cc8 de l'ancienne interface) garde un contraste de 4,5:1 avec le texte blanc. */
+nav[aria-label] > .btn.btn-primary,
+nav[aria-label] > a.btn.active,
+[role="tab"][aria-selected="true"] {
+  background-color: #1f7fa5;
+  border-color: #1f7fa5;
+  color: #fff;
+  font-weight: 700;
+}
