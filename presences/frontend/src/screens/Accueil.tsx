@@ -207,7 +207,7 @@ export function Accueil() {
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </strong>
           {rights.readEvent && (
-            <span className="badge bg-secondary" style={{ fontSize: 13 }}>
+            <span className="badge" data-absents-today style={{ fontSize: 13, backgroundColor: '#495057', color: '#fff' }}>
               {t('presences.absents.today', { defaultValue: "Nombre d'absents :" })} {absentsToday}
             </span>
           )}
