@@ -576,7 +576,7 @@ public class DefaultRegisterService extends DBService implements RegisterService
         // A previous version chained DIRECTION as an OPTIONAL MATCH on the mandatory CPE match
         // (dead fallback) and used the wrong function group filter ("DIRECTION" instead of
         // "DIRECTION-Func"), so the fallback never resolved anyone.
-        String queryCounsellor = "MATCH (s:Structure {id:{structureId}}) " +
+        String queryCounsellor = "MATCH (s:Structure {id:$structureId}) " +
                 "OPTIONAL MATCH (cpe:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(s) " +
                 "WHERE ANY(function IN cpe.functions WHERE function =~ '.*(?=\\\\$EDUCATION).*(?=EDU).*(?=\\\\$E0030).*') " +
                 "WITH s, collect(cpe.id)[0] AS cpeId " +
@@ -854,7 +854,7 @@ public class DefaultRegisterService extends DBService implements RegisterService
             JsonObject course = either.right().getValue();
             JsonArray teacherIds = course.getJsonArray("teacherIds", new JsonArray());
 
-            String teacherQuery = "MATCH (u:User) WHERE u.id IN {teacherIds} RETURN u.id as id, (u.lastName + ' ' + u.firstName) as displayName, " +
+            String teacherQuery = "MATCH (u:User) WHERE u.id IN $teacherIds RETURN u.id as id, (u.lastName + ' ' + u.firstName) as displayName, " +
                     "CASE WHEN u.functions IS NULL THEN [] ELSE EXTRACT(function IN u.functions | last(split(function, \"$\"))) END as functions";
             Neo4j.getInstance().execute(teacherQuery, new JsonObject().put("teacherIds", teacherIds), Neo4jResult.validResultHandler(handler));
         });
@@ -911,9 +911,9 @@ public class DefaultRegisterService extends DBService implements RegisterService
     }
 
     private void getGroupsName(JsonArray groupIds, Handler<Either<String, JsonArray>> handler) {
-        String query = "MATCH (g: Group) WHERE g.id IN {ids} return g.name as name, g.id as id " +
+        String query = "MATCH (g: Group) WHERE g.id IN $ids return g.name as name, g.id as id " +
                 "UNION " +
-                "MATCH (c: Class) WHERE c.id IN {ids} return c.name as name, c.id as id";
+                "MATCH (c: Class) WHERE c.id IN $ids return c.name as name, c.id as id";
         JsonObject params = new JsonObject()
                 .put("ids", reduce(groupIds, "id"));
 

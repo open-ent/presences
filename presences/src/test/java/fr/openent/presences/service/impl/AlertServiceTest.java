@@ -135,7 +135,7 @@ public class AlertServiceTest extends DBService {
                 "AND type IN (?,?) AND student_id IN (?,?) AND date >= ?::date + ?::time AND date <= ?::date + ?::time" +
                 " GROUP BY student_id, type HAVING count(*) >= null.get_alert_thresholder(type, ?) OFFSET ? LIMIT ?;";
         String expectedParamsSql = "[\"111\",\"ABSENCE\",\"LATENESS\",\"student3\",\"student4\",\"2022-06-01\",\"08:00:00\",\"2022-06-30\",\"23:59:59\",\"111\",0,30]";
-        String expectedQueryNeo = "MATCH (u:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) WHERE u.id IN {studentsId}" +
+        String expectedQueryNeo = "MATCH (u:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) WHERE u.id IN $studentsId" +
                 " RETURN u.firstName as firstName, u.lastName as lastName, c.name as audience, u.id as student_id;";
         String expectedParamsNeo = "{\"studentsId\":[\"student1\",\"student2\"]}";
 

@@ -75,7 +75,7 @@ public class DefaultRegisterServiceTest extends DBService {
     @Test
     public void testGetFirstCounsellorId(TestContext ctx) throws Exception {
 
-        String query = "MATCH (s:Structure {id:{structureId}}) " +
+        String query = "MATCH (s:Structure {id:$structureId}) " +
                 "OPTIONAL MATCH (cpe:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(s) " +
                 "WHERE ANY(function IN cpe.functions WHERE function =~ '.*(?=\\\\$EDUCATION).*(?=EDU).*(?=\\\\$E0030).*') " +
                 "WITH s, collect(cpe.id)[0] AS cpeId " +

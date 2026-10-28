@@ -41,8 +41,8 @@ public class DefaultUserServiceTest extends DBService {
             JsonObject params = invocation.getArgument(1);
 
             ctx.assertEquals(query,"MATCH (u:User {profiles:['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]" +
-                    "->(c:Class)-[:BELONGS]->(s:Structure)  WHERE s.id = {structureId} AND u.id IN {studentIds}" +
-                    " AND (  (u.accommodation CONTAINS {halfBoarder}) OR  (u.accommodation CONTAINS {internal}) ) " +
+                    "->(c:Class)-[:BELONGS]->(s:Structure)  WHERE s.id = $structureId AND u.id IN $studentIds" +
+                    " AND (  (u.accommodation CONTAINS $halfBoarder) OR  (u.accommodation CONTAINS $internal) ) " +
                     " RETURN u.id as id, u.lastName + ' ' + u.firstName as name, u.lastName as lastName," +
                     " u.firstName as firstName, c.name as className, u.accommodation as accommodation");
 

@@ -63,7 +63,7 @@ public class CreateDailyPresenceWorker extends BusModBase implements Handler<Mes
     }
 
     private void getStructures(JsonArray ids, Promise<JsonArray> promise) {
-        String query = "MATCH (s:Structure) WHERE s.id IN {ids} RETURN s.name as name, s.id as id;";
+        String query = "MATCH (s:Structure) WHERE s.id IN $ids RETURN s.name as name, s.id as id;";
         JsonObject params = new JsonObject().put("ids", ids);
         Neo4j.getInstance().execute(query, params, Neo4jResult.validResultHandler(FutureHelper.handlerEitherPromise(promise)));
     }

@@ -134,7 +134,7 @@ public class DefaultMassmailingServiceTest {
         List<String> students = Arrays.asList("student1", "student2");
         MailingType type = MailingType.MAIL;
 
-        String expectedQuery = "MATCH (u:User)-[:RELATED]->(r:User) WHERE u.id IN {users} " +
+        String expectedQuery = "MATCH (u:User)-[:RELATED]->(r:User) WHERE u.id IN $users " +
                 " WITH u, r " +
                 " MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                 "WITH u, collect(r.email) as emails, c " +
@@ -159,7 +159,7 @@ public class DefaultMassmailingServiceTest {
         List<String> students = Arrays.asList("student1", "student2");
         MailingType type = MailingType.MAIL;
 
-        String expectedQuery = "MATCH (u:User)-[:RELATED]->(r:User) WHERE u.id IN {students} " +
+        String expectedQuery = "MATCH (u:User)-[:RELATED]->(r:User) WHERE u.id IN $students " +
                 " WITH u, r " +
                 " MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                 " RETURN u.id as id, (u.lastName + ' ' + u.firstName)" +

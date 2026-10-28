@@ -59,11 +59,11 @@ public class PersonHelper {
      * @param handler     handler
      */
     public void getStudentsInfo(String structureId, List<String> studentIds, List<String> restrictedClasses, Handler<Either<String, JsonArray>> handler) {
-        String query = "MATCH (s:Structure {id: {structureId} })<--()--" +
-                "(u:User {profiles:['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class)-[:BELONGS]->(s) WHERE u.id IN {idStudents} ";
+        String query = "MATCH (s:Structure {id: $structureId })<--()--" +
+                "(u:User {profiles:['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class)-[:BELONGS]->(s) WHERE u.id IN $idStudents ";
 
         if (restrictedClasses != null && !restrictedClasses.isEmpty()) {
-            query += "AND c.id IN {restrictedClasses} ";
+            query += "AND c.id IN $restrictedClasses ";
         }
 
         query += "RETURN distinct (u.lastName + ' ' + u.firstName) as displayName, u.lastName as lastName, " +

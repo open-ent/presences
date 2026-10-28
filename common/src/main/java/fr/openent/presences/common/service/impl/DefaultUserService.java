@@ -25,7 +25,7 @@ public class DefaultUserService extends DBService implements UserService {
 
     @Override
     public void getUsers(List<String> userIds, Handler<Either<String, JsonArray>> handler) {
-        String query = "MATCH (u:User) WHERE u.id IN {userIds} RETURN u.id as id, u.firstName as firstName, " +
+        String query = "MATCH (u:User) WHERE u.id IN $userIds RETURN u.id as id, u.firstName as firstName, " +
                 "u.lastName as lastName, u.lastName + ' ' + u.firstName as displayName ";
         JsonObject params = new JsonObject().put("userIds", userIds);
 
@@ -41,7 +41,7 @@ public class DefaultUserService extends DBService implements UserService {
 
     @Override
     public void getStudents(List<String> students, Handler<Either<String, JsonArray>> handler) {
-        String query = "MATCH (u:User {profiles:['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) WHERE u.id IN {userIds} " +
+        String query = "MATCH (u:User {profiles:['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) WHERE u.id IN $userIds " +
                 "OPTIONAL MATCH (s:Structure)<-[:BELONGS|DEPENDS]-(c)" +
                 "RETURN u.id as id, u.lastName + ' ' + u.firstName as name, u.lastName as lastName, u.firstName as firstName, " +
                 "c.name as className, s.id as structure_id";
@@ -75,22 +75,22 @@ public class DefaultUserService extends DBService implements UserService {
     private String getWhereFilter(JsonObject params, String structureId, List<String> studentIds, Boolean halfBoarder,
                                   Boolean internal) {
 
-        String where = " WHERE s.id = {structureId}";
+        String where = " WHERE s.id = $structureId";
         params.put(Field.STRUCTUREID, structureId);
 
         if (studentIds != null && !studentIds.isEmpty()) {
-            where += " AND u.id IN {studentIds}";
+            where += " AND u.id IN $studentIds";
             params.put(Field.STUDENTIDS, studentIds);
         }
 
         if (halfBoarder != null || internal != null) {
             where += " AND (";
             if (halfBoarder != null) {
-                where += String.format(" %s (u.accommodation CONTAINS {halfBoarder})", (halfBoarder ? "" : "NOT"));
+                where += String.format(" %s (u.accommodation CONTAINS $halfBoarder)", (halfBoarder ? "" : "NOT"));
                 params.put(Field.HALFBOARDER, HALF_BOARDER);
             }
             if (internal != null) {
-                where += String.format(" %s %s (u.accommodation CONTAINS {internal})", (halfBoarder != null ? "OR" : ""),
+                where += String.format(" %s %s (u.accommodation CONTAINS $internal)", (halfBoarder != null ? "OR" : ""),
                         (internal ? "" : "NOT"));
                 params.put(Field.INTERNAL, INTERNAL);
             }
@@ -108,8 +108,8 @@ public class DefaultUserService extends DBService implements UserService {
         if (teacherId == null) promise.complete(new ArrayList<>());
         else {
             String query = "MATCH (u:User {profiles:['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]->" +
-                    "(c:Class)-[:BELONGS]->(s:Structure {id:{structureId}})," +
-                    "(t:User {id: {userId}})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c) " +
+                    "(c:Class)-[:BELONGS]->(s:Structure {id:$structureId})," +
+                    "(t:User {id: $userId})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c) " +
                     "RETURN DISTINCT u.id AS id";
             JsonObject params = new JsonObject()
                     .put(Field.STRUCTUREID, structureId)
@@ -132,10 +132,10 @@ public class DefaultUserService extends DBService implements UserService {
     @Override
     public void getStudentsWithAudiences(String structureId, List<String> studentIds, Handler<AsyncResult<JsonArray>> handler) {
         String query = "MATCH (u:User {profiles:['Student']}) " +
-                "WHERE u.id IN {studentIds} " +
-                "OPTIONAL MATCH (s:Structure {id: {structureId}})<-[:BELONGS|DEPENDS]-(g:Group)<-[:IN]-(u) " +
-                "OPTIONAL MATCH (s:Structure {id: {structureId}})<-[:BELONGS|DEPENDS]-(c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u) " +
-                "OPTIONAL MATCH (s:Structure {id: {structureId}})<-[:BELONGS|DEPENDS]-(mg:ManualGroup)<-[:IN]-(u) " +
+                "WHERE u.id IN $studentIds " +
+                "OPTIONAL MATCH (s:Structure {id: $structureId})<-[:BELONGS|DEPENDS]-(g:Group)<-[:IN]-(u) " +
+                "OPTIONAL MATCH (s:Structure {id: $structureId})<-[:BELONGS|DEPENDS]-(c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u) " +
+                "OPTIONAL MATCH (s:Structure {id: $structureId})<-[:BELONGS|DEPENDS]-(mg:ManualGroup)<-[:IN]-(u) " +
                 "RETURN u.id as id, u.lastName + ' ' + u.firstName as displayName, u.lastName as lastName, u.firstName as firstName," +
                 "collect(DISTINCT({id: g.id, name: g.name, type: 'GROUP'})) + " +
                 "collect(DISTINCT({id: c.id, name: c.name, type: 'CLASS'})) + " +
@@ -149,7 +149,7 @@ public class DefaultUserService extends DBService implements UserService {
     @Override
     public void getAllStudentsIdsWithAccommodation(String structureId, Handler<Either<String, JsonArray>> handler) {
         String query = "MATCH (u:User)-[:ADMINISTRATIVE_ATTACHMENT]->(s:Structure)" +
-                " WHERE s.id = {structureId}" +
+                " WHERE s.id = $structureId" +
                 " AND u.accommodation IS NOT NULL " +
                 " RETURN u.id AS id, u.accommodation AS accommodation";
         JsonObject params = new JsonObject()
@@ -163,7 +163,7 @@ public class DefaultUserService extends DBService implements UserService {
         Promise<JsonArray> promise = Promise.promise();
 
         String query = "MATCH (s:Structure)<-[:BELONGS]-(c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-" +
-                "(u:User {profiles:['Student']}) WHERE s.id IN {structures} RETURN s.id as structure, collect(u.id) as users";
+                "(u:User {profiles:['Student']}) WHERE s.id IN $structures RETURN s.id as structure, collect(u.id) as users";
         JsonObject params = new JsonObject().put("structures", structures);
 
         Neo4j.getInstance().execute(query, params, Neo4jResult.validResultHandler(event -> {
@@ -184,8 +184,8 @@ public class DefaultUserService extends DBService implements UserService {
      * Might change neo4j to adapt personal/teacher info (can current fetch relative and children data)
      */
     public String getUserQueryNeo4j(Boolean isRelative, Boolean student) {
-        String relativeQuery = "(:User {id: {id} })<-[RELATED]-(u:User)-";
-        String userQuery = "(u:User {id: {id} })-";
+        String relativeQuery = "(:User {id: $id })<-[RELATED]-(u:User)-";
+        String userQuery = "(u:User {id: $id })-";
 
         return "MATCH " + (isRelative != null && isRelative ? relativeQuery : userQuery) + "[:IN]->(g:ProfileGroup)-[:DEPENDS]->(s:Structure) " +
                 "MATCH (u)--(m:Group " + (student != null && student ? "{filter:'Student'}" : "") + ")--(c:Class)-[:BELONGS]->(ss:Structure) " +

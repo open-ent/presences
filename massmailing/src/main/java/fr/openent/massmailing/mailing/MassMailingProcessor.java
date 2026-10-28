@@ -703,7 +703,7 @@ public abstract class MassMailingProcessor implements Mailing {
         String query = "MATCH (u:User)-[:RELATED]->(r:User)" +
                 " WITH u, r " +
                 " MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
-                " WHERE u.id IN {students} AND r.id IN {relatives} RETURN DISTINCT r.id as id, " +
+                " WHERE u.id IN $students AND r.id IN $relatives RETURN DISTINCT r.id as id, " +
                 "(r.title + ' ' + r.lastName + ' ' + r.firstName) as displayName, " + contactValue + " as contact, r.address as address, " +
                 "(r.zipCode + ' ' + r.city) as zipcodeCity, u.id as student_id, " +
                 "(u.lastName + ' ' + u.firstName) as studentDisplayName, c.name as className";

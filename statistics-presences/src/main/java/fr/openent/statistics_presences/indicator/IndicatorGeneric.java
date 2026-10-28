@@ -44,9 +44,9 @@ public class IndicatorGeneric {
     @SuppressWarnings("unchecked")
     public static Future<JsonArray> retrieveAudiences(String structureId, String studentId) {
         Promise<JsonArray> promise = Promise.promise();
-        String query = "MATCH (u:User {id:{studentId}})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(g:Class)-[:BELONGS]->(s:Structure {id:{structureId}}) return g.id as id " +
+        String query = "MATCH (u:User {id:$studentId})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(g:Class)-[:BELONGS]->(s:Structure {id:$structureId}) return g.id as id " +
                 "UNION " +
-                "MATCH (u:User {id:{studentId}})-[:IN]->(g:FunctionalGroup)-[:DEPENDS]->(s:Structure {id:{structureId}}) return g.id as id";
+                "MATCH (u:User {id:$studentId})-[:IN]->(g:FunctionalGroup)-[:DEPENDS]->(s:Structure {id:$structureId}) return g.id as id";
         JsonObject params = new JsonObject()
                 .put("studentId", studentId)
                 .put("structureId", structureId);
@@ -67,8 +67,8 @@ public class IndicatorGeneric {
 
     public static Future<JsonObject> retrieveUser(String structureId, String studentId) {
         Promise<JsonObject> promise = Promise.promise();
-        String query = "MATCH (s:Structure {id:{structureId}})<-[:BELONGS]-(c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-" +
-                "(u:User {id: {studentId}}) RETURN (u.lastName + ' ' + u.firstName) as name, collect(c.name) as className, " +
+        String query = "MATCH (s:Structure {id:$structureId})<-[:BELONGS]-(c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-" +
+                "(u:User {id: $studentId}) RETURN (u.lastName + ' ' + u.firstName) as name, collect(c.name) as className, " +
                 "collect(c.id) as classIds";
 
         JsonObject params = new JsonObject()

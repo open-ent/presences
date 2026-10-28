@@ -201,7 +201,7 @@ public class EventController extends ControllerHelper {
                 String sid = e.getString("student_id");
                 if (sid != null && !studentIds.contains(sid)) studentIds.add(sid);
             }
-            String neo = "MATCH (u:User) WHERE u.id IN {ids} " +
+            String neo = "MATCH (u:User) WHERE u.id IN $ids " +
                     "OPTIONAL MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                     "RETURN u.id AS id, u.displayName AS displayName, head(collect(c.name)) AS className";
             Neo4j.getInstance().execute(neo, new JsonObject().put("ids", studentIds), Neo4jResult.validResultHandler(neoRes -> {
@@ -237,8 +237,8 @@ public class EventController extends ControllerHelper {
         }
         String structureId = request.getParam(Field.STRUCTUREID);
         String date = request.getParam("date");
-        String sql = "SELECT count(DISTINCT e.student_id) FILTER (WHERE e.type_id = 1) AS absent, "
-                + "count(DISTINCT e.student_id) FILTER (WHERE e.type_id = 2) AS late "
+        String sql = "SELECT count(DISTINCT e.student_id) [WHERE e.type_id = 1] AS absent, "
+                + "count(DISTINCT e.student_id) [WHERE e.type_id = 2] AS late "
                 + "FROM " + Presences.dbSchema + ".event e "
                 + "INNER JOIN " + Presences.dbSchema + ".register r ON (r.id = e.register_id AND r.structure_id = ?) "
                 + "WHERE e.start_date >= ?::timestamp AND e.start_date <= ?::timestamp";
@@ -250,7 +250,7 @@ public class EventController extends ControllerHelper {
             }
             int absent = sqlRes.right().getValue().getInteger("absent", 0);
             int late = sqlRes.right().getValue().getInteger("late", 0);
-            String neo = "MATCH (s:Structure {id:{id}})<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-"
+            String neo = "MATCH (s:Structure {id:$id})<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-"
                     + "(u:User {profiles:['Student']}) RETURN count(DISTINCT u) AS total";
             Neo4j.getInstance().execute(neo, new JsonObject().put("id", structureId), Neo4jResult.validUniqueResultHandler(neoRes -> {
                 int total = neoRes.isRight() ? neoRes.right().getValue().getInteger("total", 0) : 0;
@@ -443,10 +443,10 @@ public class EventController extends ControllerHelper {
 
     private void getUserIdFromClasses(List<String> classes, Handler<Either<String, JsonArray>> handler) {
         String query = "MATCH (c:FunctionalGroup)<-[:IN]-(s:User {profiles:['Student']}) " +
-                "WHERE c.id IN {classesId} return s.id as studentId" +
+                "WHERE c.id IN $classesId return s.id as studentId" +
                 " UNION " +
                 "MATCH (c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(s:User {profiles:['Student']}) " +
-                "WHERE c.id IN {classesId} return s.id as studentId";
+                "WHERE c.id IN $classesId return s.id as studentId";
 
         JsonObject params = new JsonObject().put("classesId", classes);
 

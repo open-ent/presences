@@ -303,7 +303,7 @@ public class CourseHelper {
     }
 
     public void getCourseTeachers(JsonArray teachers, Handler<Either<String, JsonArray>> handler) {
-        String teacherQuery = "MATCH (u:User) WHERE u.id IN {teacherIds} RETURN u.id as id, (u.lastName + ' ' + u.firstName) as displayName";
+        String teacherQuery = "MATCH (u:User) WHERE u.id IN $teacherIds RETURN u.id as id, (u.lastName + ' ' + u.firstName) as displayName";
         Neo4j.getInstance().execute(teacherQuery, new JsonObject().put("teacherIds", teachers), Neo4jResult.validResultHandler(handler));
     }
 

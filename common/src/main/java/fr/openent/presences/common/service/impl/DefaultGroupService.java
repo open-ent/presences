@@ -119,12 +119,12 @@ public class DefaultGroupService extends DBService implements GroupService {
 
     @Override
     public void getUserGroups(List<String> users, String structureId, Handler<Either<String, JsonArray>> handler) {
-        String query = "MATCH (u:User)-[:IN]->(g:FunctionalGroup)-[:DEPENDS]->(s:Structure {id:{structureId}}) " +
-                "WHERE u.id IN {users} return g.id as id, g.name as name " +
-                "UNION MATCH (u:User)-[:IN]->(g:Group)-[:DEPENDS]->(c:Class)-[:BELONGS]->(s:Structure {id:{structureId}}) " +
-                "WHERE u.id IN {users} RETURN c.id as id, c.name as name " +
-                "UNION MATCH (u:User)-[:IN]->(g:ManualGroup)-[:DEPENDS]->(s:Structure {id:{structureId}}) " +
-                "WHERE u.id IN {users} RETURN g.id as id, g.name as name";
+        String query = "MATCH (u:User)-[:IN]->(g:FunctionalGroup)-[:DEPENDS]->(s:Structure {id:$structureId}) " +
+                "WHERE u.id IN $users return g.id as id, g.name as name " +
+                "UNION MATCH (u:User)-[:IN]->(g:Group)-[:DEPENDS]->(c:Class)-[:BELONGS]->(s:Structure {id:$structureId}) " +
+                "WHERE u.id IN $users RETURN c.id as id, c.name as name " +
+                "UNION MATCH (u:User)-[:IN]->(g:ManualGroup)-[:DEPENDS]->(s:Structure {id:$structureId}) " +
+                "WHERE u.id IN $users RETURN g.id as id, g.name as name";
         JsonObject params = new JsonObject()
                 .put("users", users)
                 .put("structureId", structureId);
@@ -148,13 +148,13 @@ public class DefaultGroupService extends DBService implements GroupService {
 
         String query = "MATCH (g:Group)<-[:IN]-(u:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                 "WHERE u.profiles = ['Student'] " +
-                "AND g.id IN {ids} " +
+                "AND g.id IN $ids " +
                 "RETURN distinct u.id as id, (u.lastName + ' ' + u.firstName) as displayName, u.lastName as lastName, u.firstName as firstName, 'USER' as type, c.id as groupId, c.name as groupName " +
                 "ORDER BY displayName " +
                 "UNION  " +
                 "MATCH (u:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                 "WHERE u.profiles = ['Student'] " +
-                "AND c.id IN {ids} " +
+                "AND c.id IN $ids " +
                 "RETURN distinct u.id as id, (u.lastName + ' ' + u.firstName) as displayName, u.lastName as lastName, u.firstName as firstName, 'USER' as type, c.id as groupId, c.name as groupName " +
                 "ORDER BY displayName";
         JsonObject params = new JsonObject()
@@ -204,19 +204,19 @@ public class DefaultGroupService extends DBService implements GroupService {
 
     @Override
     public void getAudiences(String structureId, List<String> audienceIds, Handler<AsyncResult<JsonArray>> handler) {
-        String query = "MATCH (s:Structure {id: {structureId}}) " +
+        String query = "MATCH (s:Structure {id: $structureId}) " +
                 "MATCH (s)<-[:BELONGS|DEPENDS]-(g:Group)<-[:IN]-(u:User {profiles:['Student']}) " +
-                "WHERE g.id IN {audienceIds} " +
+                "WHERE g.id IN $audienceIds " +
                 "RETURN g.id as id, g.name as name, count(DISTINCT u) as countStudents " +
                 "ORDER BY name " +
                 "UNION " +
                 "MATCH(s)<-[:BELONGS|DEPENDS]-(c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u:User {profiles:['Student']}) " +
-                "WHERE c.id IN {audienceIds} " +
+                "WHERE c.id IN $audienceIds " +
                 "RETURN c.id as id, c.name as name, count(DISTINCT u) as countStudents " +
                 "ORDER BY name " +
                 "UNION " +
                 "MATCH(s)<-[:BELONGS|DEPENDS]-(m:ManualGroup)<-[:IN]-(u:User {profiles:['Student']}) " +
-                "WHERE m.id IN {audienceIds} " +
+                "WHERE m.id IN $audienceIds " +
                 "RETURN m.id as id, m.name as name, count(DISTINCT u) as countStudents " +
                 "ORDER BY name";
 
@@ -229,18 +229,18 @@ public class DefaultGroupService extends DBService implements GroupService {
 
     @Override
     public void getAudiencesFromNames(String structureId, List<String> audienceNames, Handler<AsyncResult<JsonArray>> handler) {
-        String query = "MATCH (s:Structure {id: {structureId}})<-[:BELONGS|DEPENDS]-(g:Group) " +
-                "WHERE g.name IN {audienceNames} " +
+        String query = "MATCH (s:Structure {id: $structureId})<-[:BELONGS|DEPENDS]-(g:Group) " +
+                "WHERE g.name IN $audienceNames " +
                 "RETURN g.id as id, g.name as name " +
                 "ORDER BY name " +
                 "UNION " +
-                "MATCH(s:Structure {id: {structureId}})<-[:BELONGS|DEPENDS]-(c:Class) " +
-                "WHERE c.name IN {audienceNames} " +
+                "MATCH(s:Structure {id: $structureId})<-[:BELONGS|DEPENDS]-(c:Class) " +
+                "WHERE c.name IN $audienceNames " +
                 "RETURN c.id as id, c.name as name " +
                 "ORDER BY name " +
                 "UNION " +
-                "MATCH(s:Structure {id: {structureId}})<-[:BELONGS|DEPENDS]-(m:ManualGroup) " +
-                "WHERE m.name IN {audienceNames} " +
+                "MATCH(s:Structure {id: $structureId})<-[:BELONGS|DEPENDS]-(m:ManualGroup) " +
+                "WHERE m.name IN $audienceNames " +
                 "RETURN m.id as id, m.name as name " +
                 "ORDER BY name";
 
@@ -255,11 +255,11 @@ public class DefaultGroupService extends DBService implements GroupService {
     @Override
     public void getFunctionalAndManualGroupsStudents(List<String> groups, Handler<Either<String, JsonArray>> handler) {
         String query = "MATCH (fg:FunctionalGroup)<-[:IN]-(u:User {profiles:['Student']}) " +
-                "WHERE fg.id IN {identifiers} " +
+                "WHERE fg.id IN $identifiers " +
                 "RETURN u.id as id, u.birthDate as birthDate, u.lastName as lastName, u.firstName as firstName, fg.id as groupId " +
                 "UNION " +
                 "MATCH (mg:ManualGroup)<-[:IN]-(u:User {profiles:['Student']}) " +
-                "WHERE mg.id IN {identifiers} " +
+                "WHERE mg.id IN $identifiers " +
                 "RETURN u.id as id, u.birthDate as birthDate, u.lastName as lastName, u.firstName as firstName, mg.id as groupId";
         JsonObject params = new JsonObject().put("identifiers", new JsonArray(groups));
         Neo4j.getInstance().execute(query, params, Neo4jResult.validResultHandler(handler));
@@ -271,12 +271,12 @@ public class DefaultGroupService extends DBService implements GroupService {
         Promise<List<String>> promise = Promise.promise();
         if (userId == null) promise.complete(new ArrayList<>());
         else {
-            String query = "MATCH (u:User {id:{userId}})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(g: Class)-[:BELONGS]->" +
-                    "(s:Structure {id:{structureId}}) RETURN g.id AS id " +
+            String query = "MATCH (u:User {id:$userId})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(g: Class)-[:BELONGS]->" +
+                    "(s:Structure {id:$structureId}) RETURN g.id AS id " +
                     "UNION " +
                     "MATCH (u:User {profiles:['Student']})--(:ProfileGroup)--(c:Class)--(:ProfileGroup)" +
-                    "--(t:User {id:{userId}}) " +
-                    "WITH u, c MATCH (u)--(g)-[:DEPENDS]->(s:Structure {id:{structureId}}) WHERE (g:FunctionalGroup) " +
+                    "--(t:User {id:$userId}) " +
+                    "WITH u, c MATCH (u)--(g)-[:DEPENDS]->(s:Structure {id:$structureId}) WHERE (g:FunctionalGroup) " +
                     "RETURN g.id AS id";
 
             JsonObject params = new JsonObject()
@@ -300,7 +300,7 @@ public class DefaultGroupService extends DBService implements GroupService {
     @Override
     public void getClassesStudents(List<String> classes, Handler<Either<String, JsonArray>> handler) {
         String query = "MATCH (c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u:User {profiles: ['Student']}) " +
-                "WHERE c.id IN {identifiers} " +
+                "WHERE c.id IN $identifiers " +
                 "RETURN u.id as id, u.birthDate as birthDate, u.lastName as lastName, u.firstName as firstName, c.id as groupId";
         JsonObject params = new JsonObject().put("identifiers", new JsonArray(classes));
         Neo4j.getInstance().execute(query, params, Neo4jResult.validResultHandler(handler));
@@ -322,15 +322,15 @@ public class DefaultGroupService extends DBService implements GroupService {
 
         switch (type) {
             case GROUP: {
-                query = "MATCH (s:Structure {id:{structureId}})<-[:DEPENDS]-(g:Group) WHERE g.name IN {objects} RETURN g.id as id";
+                query = "MATCH (s:Structure {id:$structureId})<-[:DEPENDS]-(g:Group) WHERE g.name IN $objects RETURN g.id as id";
                 break;
             }
             case CLASS: {
-                query = "MATCH (s:Structure {id:{structureId}})<-[:BELONGS]-(c:Class) WHERE c.name IN {objects} RETURN c.id as id";
+                query = "MATCH (s:Structure {id:$structureId})<-[:BELONGS]-(c:Class) WHERE c.name IN $objects RETURN c.id as id";
                 break;
             }
             case MANUAL_GROUP: {
-                query = "MATCH (s:Structure {id:{structureId}})<-[:BELONGS*0..1]-()<-[:DEPENDS]-(mg:ManualGroup) WHERE mg.name IN {objects} RETURN mg.id as id";
+                query = "MATCH (s:Structure {id:$structureId})<-[:BELONGS*0..1]-()<-[:DEPENDS]-(mg:ManualGroup) WHERE mg.name IN $objects RETURN mg.id as id";
                 break;
             }
             default: {

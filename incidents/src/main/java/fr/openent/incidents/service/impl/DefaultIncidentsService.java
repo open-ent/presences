@@ -351,7 +351,7 @@ public class DefaultIncidentsService extends SqlCrudService implements Incidents
             }
         }
 
-        String query = "MATCH (u:User) WHERE u.id IN {idStudents} " +
+        String query = "MATCH (u:User) WHERE u.id IN $idStudents " +
                 "RETURN (u.lastName + ' ' + u.firstName) as displayName, u.id as idEleve";
         JsonObject params = new JsonObject().put("idStudents", protagonists);
 

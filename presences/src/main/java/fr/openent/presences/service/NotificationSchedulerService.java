@@ -172,7 +172,7 @@ public class NotificationSchedulerService {
     /** Nom de la structure + ses établissements descendants (vide si la structure est une feuille). */
     private io.vertx.core.Future<JsonObject> resolveTargets(String structureId) {
         io.vertx.core.Promise<JsonObject> promise = io.vertx.core.Promise.promise();
-        String query = "MATCH (s:Structure {id: {id}}) " +
+        String query = "MATCH (s:Structure {id: $id}) " +
                 "OPTIONAL MATCH (s)<-[:HAS_ATTACHMENT*1..]-(d:Structure) " +
                 "RETURN s.name AS name, collect(DISTINCT {id: d.id, name: d.name}) AS children;";
         neo4j.execute(query, new JsonObject().put("id", structureId), Neo4jResult.validUniqueResultHandler(event -> {

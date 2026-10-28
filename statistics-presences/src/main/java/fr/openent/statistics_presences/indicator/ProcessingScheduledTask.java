@@ -298,7 +298,7 @@ public class ProcessingScheduledTask implements Handler<Long> {
     /** Résout le nom d'un établissement (Neo4j). */
     private Future<String> structureName(String structureId) {
         Promise<String> promise = Promise.promise();
-        String query = "MATCH (s:Structure {id: {id}}) RETURN s.name AS name;";
+        String query = "MATCH (s:Structure {id: $id}) RETURN s.name AS name;";
         JsonObject params = new JsonObject().put("id", structureId);
         Neo4j.getInstance().execute(query, params, org.entcore.common.neo4j.Neo4jResult.validUniqueResultHandler(event ->
                 promise.complete(event.isLeft() ? null : event.right().getValue().getString("name"))));

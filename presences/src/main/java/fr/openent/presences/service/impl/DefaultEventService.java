@@ -507,12 +507,12 @@ public class DefaultEventService extends DBService implements EventService {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
-            String query = "MATCH (u:User {profiles: ['Student']})-[:IN]->(pg:ProfileGroup)-[:DEPENDS]->(s:Structure {id:{structureId}})" +
+            String query = "MATCH (u:User {profiles: ['Student']})-[:IN]->(pg:ProfileGroup)-[:DEPENDS]->(s:Structure {id:$structureId})" +
                     " OPTIONAL MATCH (c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u)" +
                     " OPTIONAL MATCH (fg:FunctionalGroup)<-[:IN]-(u)" +
                     " OPTIONAL MATCH (mg:ManualGroup)<-[:IN]-(u)" +
                     " WITH u, c, fg, mg" +
-                    " WHERE c.name IN {classesName} OR fg.name IN {groupsName} OR mg.name IN {groupsName}" +
+                    " WHERE c.name IN $classesName OR fg.name IN $groupsName OR mg.name IN $groupsName" +
                     " RETURN distinct(u.id) AS id";
 
 

@@ -102,7 +102,7 @@ public class DefaultMassmailingService implements MassmailingService {
         switch (type) {
             case MAIL:
                 query = "MATCH (u:User)-[:RELATED]->(r:User) " +
-                        "WHERE u.id IN {users} " +
+                        "WHERE u.id IN $users " +
                         " WITH u, r " +
                         " MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                         "WITH u, collect(r.email) as emails, c " +
@@ -114,7 +114,7 @@ public class DefaultMassmailingService implements MassmailingService {
                 break;
             case SMS:
                 query = "MATCH (u:User)-[:RELATED]->(r:User) " +
-                        "WHERE u.id IN {users} " +
+                        "WHERE u.id IN $users " +
                         " WITH u, r " +
                         " MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                         "WITH u, collect(r.mobile) as mobiles, c " +
@@ -192,7 +192,7 @@ public class DefaultMassmailingService implements MassmailingService {
                 contactValue = "";
         }
 
-        String query = "MATCH (u:User)-[:RELATED]->(r:User) WHERE u.id IN {students} " +
+        String query = "MATCH (u:User)-[:RELATED]->(r:User) WHERE u.id IN $students " +
                 " WITH u, r " +
                 " MATCH (u)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
                 " RETURN u.id as id, " +

@@ -425,9 +425,9 @@ public class Global extends Indicator {
     }
 
     private String matchUsersFromProvidedAudiencesQuery(GlobalSearch search, JsonObject params) {
-        String query = "MATCH (s:Structure {id:{structure}})<-[:BELONGS|:DEPENDS]-(g)<-[:IN|DEPENDS*1..2]-(u:User {profiles: ['Student']}) " +
+        String query = "MATCH (s:Structure {id:$structure})<-[:BELONGS|:DEPENDS]-(g)<-[:IN|DEPENDS*1..2]-(u:User {profiles: ['Student']}) " +
                 "WHERE (g:Class OR g:FunctionalGroup) " +
-                "AND g.id IN {audiences} ";
+                "AND g.id IN $audiences ";
 
         params.put(Field.STRUCTURE, search.filter().structure())
                 .put(Field.AUDIENCES, search.filter().audiences());
@@ -656,8 +656,8 @@ public class Global extends Indicator {
     }
 
     private String matchUserInClassQuery(GlobalSearch search, List<String> users, JsonObject params) {
-        String query = "MATCH (u:User {profiles: ['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class)-[:BELONGS]->(s:Structure {id: {structure}}) " +
-                (users != null && !users.isEmpty() ? "WHERE u.id IN {users} " : "");
+        String query = "MATCH (u:User {profiles: ['Student']})-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class)-[:BELONGS]->(s:Structure {id: $structure}) " +
+                (users != null && !users.isEmpty() ? "WHERE u.id IN $users " : "");
 
         params.put(Field.STRUCTURE, search.filter().structure());
         if (users != null && !users.isEmpty()) params.put(Field.USERS, users);

@@ -22,7 +22,7 @@ public class DefaultStructureService extends DBService implements StructureServi
 
     @Override
     public void fetchStructuresInfos(List<String> structuresId, Handler<Either<String, JsonArray>> handler) {
-        String query = "MATCH (s:Structure) WHERE s.id IN {structuresId} return s.id as id, s.externalId as externalId, s.name as name";
+        String query = "MATCH (s:Structure) WHERE s.id IN $structuresId return s.id as id, s.externalId as externalId, s.name as name";
         JsonObject params = new JsonObject().put("structuresId", structuresId);
         Neo4j.getInstance().execute(query, params, Neo4jResult.validResultHandler(handler));
     }

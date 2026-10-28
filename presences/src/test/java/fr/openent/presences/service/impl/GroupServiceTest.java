@@ -56,11 +56,11 @@ public class GroupServiceTest extends DBService {
 
 
         String expected = "MATCH (u:User {profiles: ['Student']})-[:IN]->(pg:ProfileGroup)-[:DEPENDS]" +
-                "->(s:Structure {id:{structureId}})  " +
+                "->(s:Structure {id:$structureId})  " +
                 " OPTIONAL MATCH (c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u) " +
                 " OPTIONAL MATCH (g:Group)<-[:IN]-(u) " +
                 " WITH u, c, g " +
-                " WHERE c.id IN {groupIds} OR g.id IN {groupIds} " +
+                " WHERE c.id IN $groupIds OR g.id IN $groupIds " +
                 " RETURN DISTINCT u.id as id, (u.lastName + ' ' + u.firstName) as displayName, u.lastName as lastName, " +
                 " u.firstName as firstName, 'USER' as type, COLLECT(DISTINCT {id: c.id, name: c.name}) as classes,  " +
                 " COLLECT(DISTINCT {id: g.id, name: g.name}) as groups " +

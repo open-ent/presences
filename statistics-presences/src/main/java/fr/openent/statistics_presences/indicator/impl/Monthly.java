@@ -530,13 +530,13 @@ public class Monthly extends Indicator {
      * @param promise Future completing current stage
      */
     private void searchClasses(MonthlySearch search, List<String> audienceIds, Promise<MonthlySearch> promise) {
-        String query = "MATCH (c:Class)-[:BELONGS]->(s:Structure {id: {structure}}) " +
+        String query = "MATCH (c:Class)-[:BELONGS]->(s:Structure {id: $structure}) " +
                 "WHERE (c:Class OR c:FunctionalGroup) ";
         JsonObject params = new JsonObject()
                 .put("structure", search.filter().structure());
 
         if (audienceIds != null && !audienceIds.isEmpty()) {
-            query += "AND c.id IN {audiences} ";
+            query += "AND c.id IN $audiences ";
             params.put("audiences", audienceIds);
         }
 

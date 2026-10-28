@@ -141,7 +141,7 @@ public class DefaultAlertService extends DBService implements AlertService {
                     // Get names, first names and class name
                     String studentQuery =
                             "MATCH (u:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(c:Class) " +
-                                    "WHERE u.id IN {studentsId} " +
+                                    "WHERE u.id IN $studentsId " +
                                     "RETURN u.firstName as firstName, u.lastName as lastName, c.name as audience, u.id as student_id;";
 
                     JsonObject studentParam = new JsonObject().put(Field.STUDENTSID, studentsAlerts);
