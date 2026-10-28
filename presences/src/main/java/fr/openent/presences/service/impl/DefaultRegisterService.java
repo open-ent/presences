@@ -576,9 +576,12 @@ public class DefaultRegisterService extends DBService implements RegisterService
         // A previous version chained DIRECTION as an OPTIONAL MATCH on the mandatory CPE match
         // (dead fallback) and used the wrong function group filter ("DIRECTION" instead of
         // "DIRECTION-Func"), so the fallback never resolved anyone.
+        // The CPE pattern used to be '.*(?=$EDUCATION).*(?=EDU).*(?=$E0030).*': same matches
+        // ("EDU" lies inside "$EDUCATION"), but its backtracking exceeds ArcadeDB's regex
+        // deadline (arcadedb.command.regexTimeout) on a 60-character function.
         String queryCounsellor = "MATCH (s:Structure {id:$structureId}) " +
                 "OPTIONAL MATCH (cpe:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(s) " +
-                "WHERE ANY(function IN cpe.functions WHERE function =~ '.*(?=\\\\$EDUCATION).*(?=EDU).*(?=\\\\$E0030).*') " +
+                "WHERE ANY(function IN cpe.functions WHERE function =~ '.*\\\\$EDUCATION.*\\\\$E0030.*') " +
                 "WITH s, collect(cpe.id)[0] AS cpeId " +
                 "OPTIONAL MATCH (dir:User)-[:IN]->(:FunctionGroup {filter:'DIRECTION-Func'})-[:DEPENDS]->(s) " +
                 "WITH s, cpeId, collect(dir.id)[0] AS dirId " +
