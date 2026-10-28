@@ -63,7 +63,7 @@ public final class UiPreferenceHelper {
         if (forced != null) return Future.succeededFuture(forced);
         if (StringUtils.isBlank(userId)) return Future.succeededFuture(platformUi);
         final Promise<String> promise = Promise.promise();
-        final String query = "MATCH (:User {id:{userId}})-[:PREFERS]->(uac:UserAppConf) RETURN uac." + preferenceKey + " AS preference";
+        final String query = "MATCH (:User {id:$userId})-[:PREFERS]->(uac:UserAppConf) RETURN uac." + preferenceKey + " AS preference";
         try {
             Neo4j.getInstance().execute(query, new JsonObject().put("userId", userId), message -> {
                 try {
