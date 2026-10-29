@@ -507,12 +507,22 @@ public class DefaultEventService extends DBService implements EventService {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
-            String query = "MATCH (u:User {profiles: ['Student']})-[:IN]->(pg:ProfileGroup)-[:DEPENDS]->(s:Structure {id:$structureId})" +
-                    " OPTIONAL MATCH (c:Class)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u)" +
-                    " OPTIONAL MATCH (fg:FunctionalGroup)<-[:IN]-(u)" +
-                    " OPTIONAL MATCH (mg:ManualGroup)<-[:IN]-(u)" +
-                    " WITH u, c, fg, mg" +
-                    " WHERE c.name IN $classesName OR fg.name IN $groupsName OR mg.name IN $groupsName" +
+            // Partir des classes et groupes nommés, non des élèves de l'établissement. L'ancienne
+            // forme dépliait trois OPTIONAL MATCH sur tous les élèves avant de filtrer sur le nom :
+            // 22 s sur ArcadeDB, qui exécute le motif dans l'ordre écrit, contre 0,0 s à Neo4j qui
+            // le réordonnait. Réancrer le départ ne suffisait pas — c'est le dépliage qui coûte.
+            // Les noms désignent une poignée de nœuds : les prendre comme point d'entrée rend les
+            // mêmes lignes en 0,4 s, vérifié sur les deux moteurs.
+            String query = "MATCH (c:Class)-[:BELONGS]->(s:Structure {id:$structureId})" +
+                    " WHERE c.name IN $classesName" +
+                    " WITH c MATCH (c)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(u:User)" +
+                    " WHERE u.profiles = ['Student']" +
+                    " RETURN distinct(u.id) AS id" +
+                    " UNION " +
+                    "MATCH (g)-[:DEPENDS]->(s:Structure {id:$structureId})" +
+                    " WHERE (g:FunctionalGroup OR g:ManualGroup) AND g.name IN $groupsName" +
+                    " WITH g MATCH (g)<-[:IN]-(u:User)" +
+                    " WHERE u.profiles = ['Student']" +
                     " RETURN distinct(u.id) AS id";
 
 

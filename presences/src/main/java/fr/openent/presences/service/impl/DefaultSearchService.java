@@ -104,8 +104,12 @@ public class DefaultSearchService implements SearchService {
                 "RETURN DISTINCT g.id as id, g.name as displayName, 'GROUP' as type, g.id as groupId, g.name as groupName ";
 
 
-        String queryFromUserId = "MATCH (u:User {profiles:['Student']})--(:ProfileGroup)--(c:Class)" +
-                "--(:ProfileGroup)--(t:User {id: $userId}) " +
+        // Ancrée sur l'utilisateur désigné, jamais sur l'ensemble des élèves : ArcadeDB exécute
+        // le motif dans l'ordre écrit, et partir de User{profiles} balayait 514 000 nœuds —
+        // plus de 75 s, au-delà du délai de 30 s du bus. Le motif est non orienté : le lire
+        // dans l'autre sens ne change rien à ce qu'il désigne.
+        String queryFromUserId = "MATCH (t:User {id: $userId})--(:ProfileGroup)--(c:Class)" +
+                "--(:ProfileGroup)--(u:User) WHERE u.profiles = ['Student'] " +
                 "WITH u, c MATCH (u)--(g)-[:DEPENDS]->(s:Structure {id: $structureId}) " +
                 "WHERE (g:ManualGroup) AND (toLower(g.name) CONTAINS $query) " +
                 "RETURN DISTINCT g.id as id, g.name as displayName, 'GROUP' as type, g.id AS groupId, g.name AS groupName " +
@@ -149,7 +153,9 @@ public class DefaultSearchService implements SearchService {
                 "RETURN g.id AS id, g.name AS displayName, 'GROUP' AS type, g.id AS groupId, g.name AS groupName " +
                 "UNION " +
                 // MATCHING Functional Group
-                "MATCH (u:User {profiles:['Student']})--(:ProfileGroup)--(c:Class)--(:ProfileGroup)--(t:User {id:$userId}) " +
+                // Même ancrage que plus haut : on part de l'utilisateur, pas des élèves.
+                "MATCH (t:User {id:$userId})--(:ProfileGroup)--(c:Class)--(:ProfileGroup)--(u:User) " +
+                "WHERE u.profiles = ['Student'] " +
                 "WITH u, c MATCH (u)--(g)-[:DEPENDS]->(s:Structure {id:$structureId}) WHERE (g:FunctionalGroup) AND " +
                 "toLower(g.name) CONTAINS $query " +
                 "RETURN g.id AS id, g.name AS displayName, 'GROUP' AS type, g.id AS groupId, g.name AS groupName";
