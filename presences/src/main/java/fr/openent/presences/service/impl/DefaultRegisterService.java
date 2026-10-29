@@ -579,13 +579,17 @@ public class DefaultRegisterService extends DBService implements RegisterService
         // The CPE pattern used to be '.*(?=$EDUCATION).*(?=EDU).*(?=$E0030).*': same matches
         // ("EDU" lies inside "$EDUCATION"), but its backtracking exceeds ArcadeDB's regex
         // deadline (arcadedb.command.regexTimeout) on a 60-character function.
+        // Each pattern is written FROM the structure: ArcadeDB runs a pattern in the order
+        // it is written. Written from (cpe:User), it walked all ~514,000 users and ran the
+        // regex on each of their functions, once per structure, from the daily cron: regex
+        // deadline exceeded, then OutOfMemoryError on the ArcadeDB server (2026-10-29).
         String queryCounsellor = "MATCH (s:Structure {id:$structureId}) " +
-                "OPTIONAL MATCH (cpe:User)-[:IN]->(:ProfileGroup)-[:DEPENDS]->(s) " +
+                "OPTIONAL MATCH (s)<-[:DEPENDS]-(:ProfileGroup)<-[:IN]-(cpe:User) " +
                 "WHERE ANY(function IN cpe.functions WHERE function =~ '.*\\\\$EDUCATION.*\\\\$E0030.*') " +
                 "WITH s, collect(cpe.id)[0] AS cpeId " +
-                "OPTIONAL MATCH (dir:User)-[:IN]->(:FunctionGroup {filter:'DIRECTION-Func'})-[:DEPENDS]->(s) " +
+                "OPTIONAL MATCH (s)<-[:DEPENDS]-(:FunctionGroup {filter:'DIRECTION-Func'})<-[:IN]-(dir:User) " +
                 "WITH s, cpeId, collect(dir.id)[0] AS dirId " +
-                "OPTIONAL MATCH (adml:User)-[:IN]->(:FunctionGroup {filter:'AdminLocal'})-[:DEPENDS]->(s) " +
+                "OPTIONAL MATCH (s)<-[:DEPENDS]-(:FunctionGroup {filter:'AdminLocal'})<-[:IN]-(adml:User) " +
                 "WITH coalesce(cpeId, dirId, collect(adml.id)[0]) AS id " +
                 "WHERE id IS NOT NULL " +
                 "RETURN id";
