@@ -862,7 +862,7 @@ public class DefaultRegisterService extends DBService implements RegisterService
             JsonArray teacherIds = course.getJsonArray("teacherIds", new JsonArray());
 
             String teacherQuery = "MATCH (u:User) WHERE u.id IN $teacherIds RETURN u.id as id, (u.lastName + ' ' + u.firstName) as displayName, " +
-                    "CASE WHEN u.functions IS NULL THEN [] ELSE EXTRACT(function IN u.functions | last(split(function, \"$\"))) END as functions";
+                    "CASE WHEN u.functions IS NULL THEN [] ELSE [function IN u.functions | last(split(function, \"$\"))] END as functions";
             Neo4j.getInstance().execute(teacherQuery, new JsonObject().put("teacherIds", teacherIds), Neo4jResult.validResultHandler(handler));
         });
     }
