@@ -221,8 +221,7 @@ public class ProcessingScheduledTask implements Handler<Long> {
                 log.info(reportStr);
                 return Future.succeededFuture();
             }
-            String subject = String.format("[%s] Rapport de calcul statistiques (consolidé)", config.getString("host"));
-            return sendThemed(consolidated, subject, "Rapport de calcul statistiques — consolidé", reportToHtml(reportStr));
+            return sendThemed(consolidated, null, "toutes structures (consolidé)", reportToHtml(reportStr));
         }));
 
         // 2. Rapports par établissement — structures ayant activé STATISTICS dans le dashboard
@@ -237,9 +236,7 @@ public class ProcessingScheduledTask implements Handler<Long> {
                 if (recipients.isEmpty()) continue;
                 perStructure.add(structureName(structureId).compose(name -> {
                     String label = name != null ? name : structureId;
-                    String subject = String.format("[%s] Rapport de calcul statistiques - %s", config.getString("host"), label);
-                    return sendThemed(recipients, subject, "Rapport de calcul statistiques",
-                            structureReportHtml(reports, structureId, label));
+                    return sendThemed(recipients, structureId, label, structureReportHtml(reports, structureId, label));
                 }));
             }
             return perStructure.isEmpty() ? Future.succeededFuture() : CompositeFuture.join(perStructure).mapEmpty();
@@ -251,21 +248,21 @@ public class ProcessingScheduledTask implements Handler<Long> {
         return promise.future();
     }
 
-    /** Envoie un e-mail thémé (layout ENT) à plusieurs destinataires. */
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private Future<Void> sendThemed(List<String> recipients, String subject, String title, String bodyHtml) {
-        Promise<Void> promise = Promise.promise();
-        String themed = notificationEmailHelper.wrap(title, bodyHtml);
-        List<Future> futures = new ArrayList<>();
-        for (String recipient : recipients) {
-            Promise<Message<JsonObject>> emailFuture = Promise.promise();
-            emailFuture.future().onFailure(error -> log.error(String.format(
-                    "[Statistics@%s::sendThemed] Fail to send email %s", this.getClass().getSimpleName(), error.getMessage())));
-            futures.add(emailFuture.future());
-            emailSender.sendEmail(null, recipient, null, null, subject, themed, null, false, emailFuture);
-        }
-        CompositeFuture.join(futures).onComplete(ar -> promise.complete());
-        return promise.future();
+    /**
+     * Envoie le rapport à plusieurs destinataires, habillé du gabarit {@code presences-statistics}
+     * (dashboard), qui en fournit aussi l'objet et le titre.
+     *
+     * @param structureId établissement du rapport (logo d'établissement), {@code null} pour le consolidé
+     * @param label       valeur du jeton {@code {{etablissement}}}
+     */
+    private Future<Void> sendThemed(List<String> recipients, String structureId, String label, String bodyHtml) {
+        return notificationEmailHelper.sendToAll(NotificationEmailHelper.STATISTICS, structureId,
+                        new JsonObject().put("etablissement", label), recipients, bodyHtml)
+                .recover(error -> {
+                    log.error(String.format("[Statistics@%s::sendThemed] Fail to send email %s",
+                            this.getClass().getSimpleName(), error.getMessage()));
+                    return Future.succeededFuture();
+                });
     }
 
     /** Rapport texte (consolidé) en HTML, préformaté pour conserver la mise en forme. */

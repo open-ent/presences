@@ -80,8 +80,6 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
 
         Promise<Void> promise = Promise.promise();
 
-        String title = String.format("[%s] Export event", config.getString("host"));
-
         JsonArray filesToSend = new JsonArray();
 
         ((List<JsonObject>) files.getList()).forEach(file -> {
@@ -107,11 +105,12 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
                     if (ar.succeeded()) {
                         ar.result().forEach(r -> { if (!recipients.contains(r)) recipients.add(r); });
                     }
-                    List<Future<Void>> futures = new ArrayList<>();
-                    for (String recipient : recipients) {
-                        futures.add(sendMail(recipient, title, filesToSend));
-                    }
-                    Future.join(futures)
+                    // Objet, titre et habillage : gabarit presences-event-export (dashboard). Le logo
+                    // d'établissement n'a de sens que pour un export limité à un établissement.
+                    String structureId = structureIds.size() == 1 ? structureIds.get(0) : null;
+                    notificationEmailHelper.render(fr.openent.presences.common.helper.NotificationEmailHelper.EVENT_EXPORT,
+                                    structureId, null, description())
+                            .compose(email -> notificationEmailHelper.sendToAll(email, recipients, filesToSend))
                             .onSuccess(res -> promise.complete())
                             .onFailure(promise::fail);
                 });
@@ -120,30 +119,7 @@ public class EventExportWorker extends BusModBase implements Handler<Message<Jso
     }
 
     private String description() {
-        String body = "<div>" + I18n.getInstance().translate("presences.csv.report.from", domain, locale) + " " +
-                DateHelper.getCurrentDayWithHours() + "</div>";
-        return notificationEmailHelper.wrap("Export des événements", body);
-    }
-
-    private Future<Void> sendMail(String recipient, String title, JsonArray attachments) {
-        Promise<Void> promise = Promise.promise();
-
-        if (emailSender != null) {
-            emailSender.sendEmail(null, recipient, null, null, title, attachments, description(), null, false, event -> {
-                if (event.failed()) {
-                    log.error("[Presences@EventExportWorker::sendMail] failed to send mail: " +  event.cause().getMessage(),
-                            event.cause().getMessage());
-                    promise.fail(event.cause().getMessage());
-                } else {
-                    promise.complete();
-                }
-            });
-        } else {
-            String message = "[" + this.getClass().getSimpleName() + "] sendMail: emailSender instance is null";
-            log.error(message);
-            promise.fail(message);
-        }
-
-        return promise.future();
+        return "<p style=\"margin:0;\">" + I18n.getInstance().translate("presences.csv.report.from", domain, locale) + " " +
+                DateHelper.getCurrentDayWithHours() + "</p>";
     }
 }

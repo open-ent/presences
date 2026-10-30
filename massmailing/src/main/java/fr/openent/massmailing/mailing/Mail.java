@@ -4,9 +4,11 @@ import fr.openent.massmailing.Massmailing;
 import fr.openent.massmailing.enums.MailingType;
 import fr.openent.massmailing.enums.MassmailingType;
 import fr.openent.presences.common.helper.FutureHelper;
+import fr.openent.presences.common.helper.NotificationEmailHelper;
 import fr.wseduc.webutils.Either;
 import fr.wseduc.webutils.I18n;
 import fr.wseduc.webutils.email.EmailSender;
+import fr.wseduc.webutils.http.Renders;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -19,6 +21,8 @@ import java.util.List;
 
 public class Mail extends MassMailingProcessor {
     private EmailSender emailSender = Massmailing.emailSender;
+    /** Adresse publique de l'ENT, celle de la requête d'envoi : le logo du bandeau s'y charge. */
+    private String baseUrl = "";
 
     public Mail(String structure, Template template, Boolean massmailed,
                 List<MassmailingType> massmailingTypeList, List<Integer> reasons, List<Integer> punishmentsTypes,
@@ -30,6 +34,9 @@ public class Mail extends MassMailingProcessor {
 
     @Override
     public void massmail(HttpServerRequest request, Handler<Either<String, Boolean>> handler) {
+        if (request != null) {
+            baseUrl = Renders.getScheme(request) + "://" + Renders.getHost(request);
+        }
         super.process(event -> {
             if (event.isLeft()) {
                 String errorMessage = "[Massmailing@Mail] Failed to process mailing";
@@ -74,18 +81,23 @@ public class Mail extends MassMailingProcessor {
         String contact = mail.getString("contact");
         String message = mail.getString("message");
         String subject = I18n.getInstance().translate("massmailing.mail.subject", getTemplate().getDomain(), getTemplate().getLocale(), mail.getString("studentDisplayName").toUpperCase());
-        // Habillage du message dans le layout générique ENT (cohérence visuelle des e-mails du module).
-        String themedMessage = fr.openent.presences.common.helper.NotificationEmailHelper.wrapBody(subject, message);
-        emailSender.sendEmail(null, contact, null, null, subject, themedMessage, null, false, event -> {
-            if (event.failed()) {
-                String errorMessage = "[Massmailing@Mail] Failed to send mail";
-                //TODO Réaliser une sauvegarde
-                LOGGER.error(String.format("%s %s %s", errorMessage, event.cause().getMessage(), mail));
-                handler.handle(new Either.Left<>(errorMessage));
-                return;
-            }
+        // Objet et corps : modèle de courrier de l'établissement. Habillage (logo, couleur, signature,
+        // pied de page) : gabarit presences-massmailing, réglé dans le dashboard comme les autres e-mails.
+        NotificationEmailHelper.render(baseUrl, NotificationEmailHelper.MASSMAILING, getStructure(), null,
+                        message, subject, subject)
+                .onComplete(rendered -> {
+                    String themedMessage = rendered.succeeded() ? rendered.result().html : message;
+                    emailSender.sendEmail(null, contact, null, null, subject, themedMessage, null, false, event -> {
+                        if (event.failed()) {
+                            String errorMessage = "[Massmailing@Mail] Failed to send mail";
+                            //TODO Réaliser une sauvegarde
+                            LOGGER.error(String.format("%s %s %s", errorMessage, event.cause().getMessage(), mail));
+                            handler.handle(new Either.Left<>(errorMessage));
+                            return;
+                        }
 
-            saveMassmailing(mail, handler);
-        });
+                        saveMassmailing(mail, handler);
+                    });
+                });
     }
 }

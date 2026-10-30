@@ -205,15 +205,19 @@ public class CreateDailyPresenceWorker extends BusModBase implements Handler<Mes
 
     private void sendMail(String title, String message) {
         // Liste de supervision globale (ent-core.yaml). Le détail par établissement est désormais
-        // piloté depuis le dashboard (cf. NotificationSchedulerService). E-mail habillé du layout ENT.
+        // piloté depuis le dashboard (cf. NotificationSchedulerService). L'objet reste celui de la
+        // supervision ; l'habillage est celui du gabarit presences-daily-register.
         JsonArray listMails = config.getJsonArray("mails-list-cron", new JsonArray());
 
         if (listMails.isEmpty()) {
             log.info(message);
         } else {
-            notificationEmailHelper.sendToAll(
-                    fr.openent.presences.common.helper.NotificationEmailHelper.toRecipientList(listMails),
-                    title, "Rapport d'ouverture des appels", message);
+            fr.openent.presences.common.helper.NotificationEmailHelper
+                    .render(config.getString("host", ""), fr.openent.presences.common.helper.NotificationEmailHelper.DAILY_REGISTER,
+                            null, null, message, title, "Rapport d'ouverture des appels")
+                    .compose(email -> notificationEmailHelper.sendToAll(email,
+                            fr.openent.presences.common.helper.NotificationEmailHelper.toRecipientList(listMails), null))
+                    .onFailure(err -> log.error("[Presences@CreateDailyPresenceWorker::sendMail] " + err.getMessage()));
         }
     }
 

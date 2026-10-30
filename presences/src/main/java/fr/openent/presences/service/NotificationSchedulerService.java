@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * sauvegarde le {@link CronTrigger} correspondant est annulé puis recréé (re-planification dynamique).
  *
  * <p>Au déclenchement, on compte les appels ouverts dans la journée pour la structure et on envoie
- * le rapport thématisé (layout ENT) aux destinataires configurés.</p>
+ * le rapport, habillé du gabarit {@code presences-daily-register}, aux destinataires configurés.</p>
  */
 public class NotificationSchedulerService {
 
@@ -137,9 +137,8 @@ public class NotificationSchedulerService {
                 int total = 0;
                 for (String id : counts.fieldNames()) total += counts.getInteger(id, 0);
 
-                String subject = "[Présences] Rapport d'ouverture des appels - " + name;
-                String title = "Rapport d'ouverture des appels";
-                StringBuilder body = new StringBuilder("<p>Bonjour,</p>");
+                // Objet, titre, accroche et habillage : gabarit presences-daily-register (dashboard).
+                StringBuilder body = new StringBuilder();
                 if (isGroup) {
                     body.append("<p>Récapitulatif des appels ouverts pour <strong>").append(escape(name))
                             .append("</strong> (").append(targetIds.size()).append(" établissement(s)) à la date du ")
@@ -164,7 +163,8 @@ public class NotificationSchedulerService {
                             .append("<p style=\"font-size:16px;\"><strong>").append(total)
                             .append("</strong> appel(s) ouvert(s) aujourd'hui.</p>");
                 }
-                emailHelper.sendToAll(recipients, subject, title, body.toString());
+                emailHelper.sendToAll(NotificationEmailHelper.DAILY_REGISTER, structureId,
+                        new JsonObject().put("etablissement", name), recipients, body.toString());
             });
         });
     }
