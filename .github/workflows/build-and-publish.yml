@@ -47,6 +47,37 @@ jobs:
             opendigitaleducation/node:10-alpine \
             sh -c "npm install --legacy-peer-deps && node_modules/gulp/bin/gulp.js build"
 
+      # IHM React (?ui=react) des 4 modules : sous-projets Vite frontend/, distincts du Gulp. Sans cette étape, les fat-mods
+      # contiennent les vues *-react.html mais PAS le bundle public/index.js : ?ui=react charge une page vide (404 sur le bundle)
+      # alors que l'AngularJS fonctionne. Paquets privés @open-ent -> auth via OPENENT_PACKAGES_TOKEN (frontend/.npmrc).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Build frontends React (presences, incidents, statistics-presences, massmailing)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.OPENENT_PACKAGES_TOKEN }}
+        run: |
+          # le Gulp (docker, root) a créé des fichiers root dans les dossiers resources
+          sudo chown -R "$(id -u):$(id -g)" presences incidents statistics-presences massmailing common
+          for m in presences incidents statistics-presences massmailing; do
+            echo "::group::frontend React de $m"
+            (cd "$m/frontend" && pnpm install --no-frozen-lockfile && NODE_ENV=production pnpm exec vite build)
+            mkdir -p "$m/src/main/resources/public"
+            cp -r "$m/frontend/dist/public/." "$m/src/main/resources/public/"
+            echo "::endgroup::"
+          done
+
+      - name: Vérifier les bundles React
+        run: |
+          for m in presences incidents statistics-presences massmailing; do
+            test -f "$m/src/main/resources/public/index.js" || { echo "::error::bundle React manquant : $m/src/main/resources/public/index.js"; exit 1; }
+          done
+
       - name: Upload frontend assets
         uses: actions/upload-artifact@v7
         with:
