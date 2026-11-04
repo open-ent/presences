@@ -38,13 +38,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Build with Node 10 via Docker
+      # node:26 (Debian) et non alpine : entcore-generic-icons est une dépendance npm en URL git, et l'alpine n'a pas git.
+      - name: Build with Node 26 via Docker
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
             --user root \
-            opendigitaleducation/node:10-alpine \
+            node:26 \
             sh -c "npm install --legacy-peer-deps && node_modules/gulp/bin/gulp.js build"
 
       # IHM React (?ui=react) des 4 modules : sous-projets Vite frontend/, distincts du Gulp. Sans cette étape, les fat-mods
@@ -52,7 +53,7 @@ jobs:
       # alors que l'AngularJS fonctionne. Paquets privés @open-ent -> auth via OPENENT_PACKAGES_TOKEN (frontend/.npmrc).
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
 
       - uses: pnpm/action-setup@v6
         with:
@@ -99,7 +100,7 @@ jobs:
 
       - uses: actions/setup-java@v6
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: temurin
           cache: maven
 
@@ -165,10 +166,22 @@ jobs:
           ENTCORE_OPT=""
           if [ -n "$ENTCORE_VERSION" ]; then ENTCORE_OPT="-DentCoreVersion=$ENTCORE_VERSION"; fi
           # -Dmaven.test.skip=true (pas -DskipTests) : évite la compilation des tests, qui crashe
-          # sous JDK 21 via maven-scala-plugin:2.15.2 hérité d'app-parent (testCompile scala).
+          # sous les JDK récents via maven-scala-plugin:2.15.2 hérité d'app-parent (testCompile scala).
           mvn clean package -Dmaven.test.skip=true -B -DbuildNumber=${GITHUB_SHA::8} -DscmBranch=${GITHUB_REF_NAME} $ENTCORE_OPT
         env:
           ENTCORE_VERSION: ${{ github.event.inputs.entcore_version }}
+
+      # Depuis le JDK 23, javac n'exécute plus les processeurs d'annotations trouvés sur le
+      # classpath : sans `-proc:full` (pom), les jars partent sans securedaction/ ni routes/, et
+      # chaque route sécurisée répond 404 — sans aucune erreur de build.
+      - name: Verify annotation metadata
+        run: |
+          for m in presences incidents massmailing statistics-presences; do
+            FAT_JAR=$(ls $m/target/*-fat.jar | head -1)
+            for d in securedaction routes; do
+              unzip -Z1 "$FAT_JAR" | grep -q "^$d/" || { echo "::error::$d/ absent de $FAT_JAR"; exit 1; }
+            done
+          done
 
       - name: Run tests
         if: github.event_name == 'pull_request'

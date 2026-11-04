@@ -1,9 +1,9 @@
 var gulp = require('gulp');
 var webpack = require('webpack-stream');
-var merge = require('merge2');
 const replace = require('gulp-replace');
 var clean = require('gulp-clean');
 var args = require('yargs').argv;
+var path = require('path');
 
 var apps = ['presences', 'incidents', 'massmailing', 'statistics-presences'];
 
@@ -13,38 +13,52 @@ if (args.targetModule) {
 }
 
 gulp.task('drop-cache', function () {
-    var streams = [];
+    var dirs = [];
     apps.forEach(function (app) {
-        streams.push(gulp.src(['./' + app + '/src/main/resources/public/dist'], {read: false}).pipe(clean()))
-        streams.push(gulp.src(['./' + app + '/build'], {read: false}).pipe(clean()))
+        dirs.push('./' + app + '/src/main/resources/public/dist');
+        dirs.push('./' + app + '/build');
     });
-    return merge(streams);
+    return gulp.src(dirs, {read: false, allowEmpty: true}).pipe(clean());
 });
 
-gulp.task('webpack', ['drop-cache'], function () {
-    var streams = [];
-    apps.forEach(function (app) {
-        streams.push(gulp.src('./' + app + '/src/main/resources/public/**/*.ts')
-            .pipe(webpack(require('./' + app + '/webpack.config.js')))
-            .on('error', function handleError() {
-                this.emit('end'); // Recover from errors
-            })
-            .pipe(gulp.dest('./' + app + '/src/main/resources/public/dist')))
-    });
-    return merge(streams);
-});
+// Appel direct du webpack embarqué par webpack-stream (webpack 1, celui qui a toujours produit
+// les bundles) : ses flux « through » ne se raccordent pas à ceux de gulp 5. Les erreurs de
+// typage restent signalées sans interrompre le build, comme sous gulp 3.
+function webpackApp(app) {
+    var task = function (done) {
+        var config = require('./' + app + '/webpack.config.js');
+        config.output.path = path.resolve(__dirname, './' + app + '/src/main/resources/public/dist');
+        webpack.webpack(config, function (err, stats) {
+            if (stats) console.log(stats.toString({colors: false, chunks: false}));
+            done(err);
+        });
+    };
+    task.displayName = 'webpack:' + app;
+    return task;
+}
 
-gulp.task('build', ['webpack'], function () {
-    var streams = [];
-    apps.forEach(function (app) {
-        streams.push(gulp.src("./" + app + "/src/main/resources/view-src/**/*.+(html|json)")
+gulp.task('webpack', gulp.series('drop-cache', gulp.parallel(apps.map(webpackApp))));
+
+function viewsApp(app) {
+    var task = function () {
+        return gulp.src("./" + app + "/src/main/resources/view-src/**/*.+(html|json)")
             .pipe(replace('@@VERSION', Date.now()))
-            .pipe(gulp.dest("./" + app + "/src/main/resources/view")));
-        streams.push(gulp.src("./" + app + "/src/main/resources/public/dist/behaviours.js")
-            .pipe(gulp.dest("./" + app + "/src/main/resources/public/js")));
-    });
-    return merge(streams);
-});
+            .pipe(gulp.dest("./" + app + "/src/main/resources/view"));
+    };
+    task.displayName = 'views:' + app;
+    return task;
+}
+
+function copyBehavioursApp(app) {
+    var task = function () {
+        return gulp.src("./" + app + "/src/main/resources/public/dist/behaviours.js")
+            .pipe(gulp.dest("./" + app + "/src/main/resources/public/js"));
+    };
+    task.displayName = 'behaviours:' + app;
+    return task;
+}
+
+gulp.task('build', gulp.series('webpack', gulp.parallel(apps.map(viewsApp).concat(apps.map(copyBehavioursApp)))));
 
 /* ------------------------------------------------------------------------- *
  * Local development (see dev-server.js and the README's local development section)
@@ -63,22 +77,21 @@ gulp.task('copy-behaviours-dev', function () {
 
 // No 'drop-cache' here: webpack must overwrite dist/ in place so that
 // browser-sync's watcher sees clean "change" events (auto-reload).
-gulp.task('watch-dev', function () {
+// The task never completes: it lives as long as the watchers.
+gulp.task('watch-dev', function (done) {
     var config = require('./' + devApp + '/webpack.config.js');
-    // webpack's own watch mode: incremental compilation (~1s) and real dependency
-    // tracking, so a change in common/ or in an aliased module (@incidents,
-    // @statistics...) does rebuild the target bundle.
-    config.watch = true;
+    config.output.path = path.resolve(__dirname, './' + devApp + '/src/main/resources/public/dist');
 
     console.log('[watch-dev] module: ' + devApp);
 
-    webpack(config)
-        // Log without emitting 'end': emit('end') would close the stream and the
-        // watch would stop at the first TypeScript compilation error.
-        .on('error', function (err) {
-            console.error('[watch-dev] ' + (err && err.message ? err.message : err));
-        })
-        .pipe(gulp.dest('./' + devApp + '/src/main/resources/public/dist'));
+    // webpack's own watch mode: incremental compilation (~1s) and real dependency
+    // tracking, so a change in common/ or in an aliased module (@incidents,
+    // @statistics...) does rebuild the target bundle. Errors are logged, the
+    // watch keeps running.
+    webpack.webpack(config).watch({}, function (err, stats) {
+        if (err) console.error('[watch-dev] ' + (err.message || err));
+        else if (stats) console.log(stats.toString({colors: false, chunks: false}));
+    });
 
-    gulp.watch('./' + devApp + '/src/main/resources/public/dist/*.js', ['copy-behaviours-dev']);
+    gulp.watch('./' + devApp + '/src/main/resources/public/dist/*.js', gulp.series('copy-behaviours-dev'));
 });
