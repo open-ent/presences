@@ -184,7 +184,7 @@ public class DefaultUserService extends DBService implements UserService {
      * Might change neo4j to adapt personal/teacher info (can current fetch relative and children data)
      */
     public String getUserQueryNeo4j(Boolean isRelative, Boolean student) {
-        String relativeQuery = "(:User {id: $id })<-[RELATED]-(u:User)-";
+        String relativeQuery = "(:User {id: $id })<-[:RELATED]-(u:User)-";
         String userQuery = "(u:User {id: $id })-";
 
         return "MATCH " + (isRelative != null && isRelative ? relativeQuery : userQuery) + "[:IN]->(g:ProfileGroup)-[:DEPENDS]->(s:Structure) " +
